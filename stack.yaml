@@ -8,7 +8,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/Teaspot-Studio/gore-and-ash.git
-    commit: 8405b253e2cfc17e6eff39a251387384f33fbd4a
+    commit: cdc2c6072706c12fecafaaa9112f7c9be50cd938
 - location:
     git: https://github.com/Teaspot-Studio/gore-and-ash-actor.git
     commit: 66c262d3384f58be5266a15691977773f9dda280
