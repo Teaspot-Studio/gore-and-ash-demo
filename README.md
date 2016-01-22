@@ -14,4 +14,6 @@ Installation
 Screenshots
 ===========
 
-** TODO: ADD SCREENSHOTS **
+![Screenshot 1](screens/screenshot_001.png)
+
+![Screenshot 2](screens/screenshot_002.png)
