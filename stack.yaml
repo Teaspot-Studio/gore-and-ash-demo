@@ -6,36 +6,16 @@ resolver: lts-4.2
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
-- location:
-    git: https://github.com/Teaspot-Studio/gore-and-ash.git
-    commit: cdc2c6072706c12fecafaaa9112f7c9be50cd938
-- location:
-    git: https://github.com/Teaspot-Studio/gore-and-ash-actor.git
-    commit: 66c262d3384f58be5266a15691977773f9dda280
-- location:
-    git: https://github.com/Teaspot-Studio/gore-and-ash-logging.git
-    commit: 818d78ec8a803dcc1ccb478b8af9974e49f02a51
-- location:
-    git: https://github.com/Teaspot-Studio/gore-and-ash-network.git
-    commit: 01054ad705dc095fe91b511561b528b8be7f06d5
-- location:
-    git: https://github.com/Teaspot-Studio/gore-and-ash-sync.git
-    commit: 491d32d9df7693f3dcf470c320e584d4e9336bed
-- location:
-    git: https://github.com/Teaspot-Studio/gore-and-ash-sdl.git
-    commit: ff6435ad7765021bd79f07d97bd303bb8ff00b3f
-- location:
-    git: https://github.com/Teaspot-Studio/netwire.git
-    commit: c9f8034c4f24c4491db88782142e0fcdf8bba540
-- location:
-    git: https://github.com/Teaspot-Studio/bitset.git
-    commit: 5bb58562ff99c551fa9643321c95a6ba27977596
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
-extra-deps:
-- henet-1.3.9.3
+extra-deps: 
 - typesafe-endian-0.1.0.1
-- netwire-5.0.1
+- gore-and-ash-1.1.0.1
+- gore-and-ash-actor-1.1.0.0
+- gore-and-ash-logging-1.1.0.0
+- gore-and-ash-network-1.1.0.0
+- gore-and-ash-sync-1.1.0.0
+- gore-and-ash-sdl-1.1.0.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}

@@ -5,7 +5,6 @@ module Graphics.Bullet(
 import Consts
 import Game.Camera 
 import Game.GoreAndAsh
-import Game.GoreAndAsh.Math 
 import Game.GoreAndAsh.SDL 
 import Linear
 import Linear.Affine

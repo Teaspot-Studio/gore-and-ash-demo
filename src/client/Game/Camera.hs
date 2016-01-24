@@ -18,7 +18,6 @@ import Prelude hiding (id, (.))
 import Game.Core
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Actor
-import Game.GoreAndAsh.Math 
 import Game.GoreAndAsh.SDL
 
 data Camera = Camera {
