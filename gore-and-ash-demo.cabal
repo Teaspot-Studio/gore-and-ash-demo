@@ -75,7 +75,7 @@ executable gore-and-ash-demo-client
                        TypeFamilies
                        
 
-  ghc-options: -O2 -Wall -Werror -threaded
+  ghc-options: -Wall -threaded
 
 executable gore-and-ash-demo-server
   hs-source-dirs:      src/server
@@ -133,4 +133,4 @@ executable gore-and-ash-demo-server
                        TupleSections
                        TypeFamilies
                        
-  ghc-options: -O2 -Wall -Werror -threaded
+  ghc-options: -Wall -threaded
