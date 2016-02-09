@@ -13,7 +13,7 @@ extra-deps:
 - gore-and-ash-1.1.0.1
 - gore-and-ash-actor-1.1.0.0
 - gore-and-ash-logging-1.1.0.0
-- gore-and-ash-network-1.1.0.0
+- gore-and-ash-network-1.2.0.0
 - gore-and-ash-sync-1.1.0.0
 - gore-and-ash-sdl-1.1.0.0
 
