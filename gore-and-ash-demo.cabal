@@ -1,5 +1,5 @@
 name:                gore-and-ash-demo
-version:             1.1.0.0
+version:             1.2.0.0
 synopsis:            Demonstration game for Gore&Ash game engine
 description:         Please see README.md
 homepage:            https://github.com/Teaspot-Studio/gore-and-ash-demo
@@ -11,6 +11,10 @@ copyright:           2015-2016 Anton Gushcha
 category:            Game
 build-type:          Simple
 cabal-version:       >=1.10
+extra-source-files:
+  README.md
+  CHANGELOG.md
+  stack.yaml
 
 executable gore-and-ash-demo-client
   hs-source-dirs:      src/client

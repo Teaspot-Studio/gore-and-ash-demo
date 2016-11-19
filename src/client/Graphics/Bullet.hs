@@ -3,20 +3,18 @@ module Graphics.Bullet(
   ) where
 
 import Consts
-import Game.Camera 
+import Game.Camera
 import Game.GoreAndAsh
-import Game.GoreAndAsh.SDL 
-import Linear
-import Linear.Affine
-import SDL 
+import Game.GoreAndAsh.SDL
+import SDL
 
 -- | Function of rendering player
 renderBullet :: MonadSDL m => V2 Double -> V2 Double -> Camera -> GameMonadT m ()
-renderBullet pos vel c = do  
+renderBullet pos vel c = do
   mwr <- sdlGetWindowM mainWindowName
-  case mwr of 
+  case mwr of
     Nothing -> return ()
-    Just (w, r) -> do 
+    Just (w, r) -> do
       wsize <- fmap (fmap fromIntegral) . get $ windowSize w
       rendererDrawColor r $= V4 0 0 0 255
       drawLine r (apply wsize startPoint) (apply wsize endPoint)
@@ -27,5 +25,5 @@ renderBullet pos vel c = do
 
     apply wsize = P . fmap round . applyTransform2D (modelMtx wsize)
 
-    modelMtx :: V2 Double -> M33 Double 
+    modelMtx :: V2 Double -> M33 Double
     modelMtx wsize = viewportTransform2D 0 wsize !*! cameraMatrix c !*! translate2D pos

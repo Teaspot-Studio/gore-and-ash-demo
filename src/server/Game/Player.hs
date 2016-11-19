@@ -20,10 +20,10 @@ import Game.Shared
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Actor
 import Game.GoreAndAsh.Logging
-import Game.GoreAndAsh.Network 
+import Game.GoreAndAsh.Network
 import Game.GoreAndAsh.Sync
 
-playerActor :: (PlayerId -> Player) -> AppActor PlayerId Game Player 
+playerActor :: (PlayerId -> Player) -> AppActor PlayerId Game Player
 playerActor initialPlayer = makeActor $ \i -> stateWire (initialPlayer i) $ mainController i
   where
   mainController i = proc (g, p) -> do
@@ -36,7 +36,7 @@ playerActor initialPlayer = makeActor $ \i -> stateWire (initialPlayer i) $ main
 
     -- | Handle when player is shot
     playerShot :: AppWire Player Player
-    playerShot = proc p -> do 
+    playerShot = proc p -> do
       emsg <- actorMessages i isPlayerShotMessage -< ()
       let newPlayer = p {
           playerPos = 0
@@ -44,31 +44,31 @@ playerActor initialPlayer = makeActor $ \i -> stateWire (initialPlayer i) $ main
       returnA -< event p (const newPlayer) emsg
 
     -- | Process player specific net messages
-    netProcess :: Player -> PlayerNetMessage -> GameMonadT AppMonad Player 
-    netProcess p msg = case msg of 
-      NetMsgPlayerFire v -> do 
-        let d = normalize v 
+    netProcess :: Player -> PlayerNetMessage -> GameMonadT AppMonad Player
+    netProcess p msg = case msg of
+      NetMsgPlayerFire v -> do
+        let d = normalize v
             v2 a = V2 a a
             pos = playerPos p + d * v2 (playerSize p * 1.5)
             vel = d * v2 bulletSpeed
-        putMsgLnM $ "Fire bullet at " <> pack (show pos) <> " with velocity " <> pack (show vel)
+        putMsgLnM LogInfo $ "Fire bullet at " <> pack (show pos) <> " with velocity " <> pack (show vel)
         actorSendM globalGameId $ GameSpawnBullet pos vel $ playerId p
-        return p 
+        return p
 
     -- | Process global net messages from given peer (player)
     globalNetProcess :: (Game, Player) -> GameNetMessage -> GameMonadT AppMonad (Game, Player)
-    globalNetProcess (g, p) msg = case msg of 
+    globalNetProcess (g, p) msg = case msg of
       PlayerRequestId -> do
-        peerSendIndexedM peer (ChannelID 0) globalGameId ReliableMessage $ 
+        peerSendIndexedM peer (ChannelID 0) globalGameId ReliableMessage $
           PlayerResponseId (toCounter i) (toCounter $ gameBulletColId g) (toCounter $ gamePlayerColId g)
         return (g, p)
-      _ -> do 
-        putMsgLnM $ pack $ show msg
-        return (g, p) 
+      _ -> do
+        putMsgLnM LogInfo $ pack $ show msg
+        return (g, p)
 
-    playerSync :: FullSync AppMonad PlayerId Player 
-    playerSync = Player 
-      <$> pure i 
+    playerSync :: FullSync AppMonad PlayerId Player
+    playerSync = Player
+      <$> pure i
       <*> clientSide peer 0 playerPos
       <*> clientSide peer 1 playerColor
       <*> clientSide peer 2 playerRot
