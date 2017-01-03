@@ -10,9 +10,7 @@ import Data.Align
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict (Map)
 import Data.Monoid
-import Data.Store
 import Data.These
-import GHC.Generics
 import Linear
 
 import qualified Data.List.NonEmpty as NE
@@ -80,12 +78,6 @@ type ServerPlayer t  = Player t (ServerPlayerExt t)
 data ServerPlayerExt t = ServerPlayerExt {
   playerPeer :: Peer
 }
-
--- | Commands to client side
-data PlayerCommand = YourPlayerId PlayerId -- ^ Inform about client player id
-  deriving (Generic)
-
-instance Store PlayerCommand
 
 -- | Player component
 player :: AppFrame t => ItemRoller t (V3 Double) -> PlayerId -> Peer -> AppMonad t (ServerPlayer t)

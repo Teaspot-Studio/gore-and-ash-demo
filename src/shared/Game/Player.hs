@@ -7,6 +7,7 @@ module Game.Player(
   , playerColorId
   , playerSpeedId
   , playerSizeId
+  , PlayerCommand(..)
   ) where
 
 import Data.Store
@@ -50,3 +51,9 @@ playerPosId     = 1
 playerColorId   = 2
 playerSpeedId   = 3
 playerSizeId    = 4
+
+-- | Commands to client side
+data PlayerCommand = YourPlayerId PlayerId -- ^ Inform about client player id
+  deriving (Generic)
+
+instance Store PlayerCommand
