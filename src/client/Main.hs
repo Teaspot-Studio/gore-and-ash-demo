@@ -4,13 +4,15 @@ import Control.Lens
 import Control.Monad.IO.Class
 import Data.Monoid
 import Game.GoreAndAsh
-import Game.GoreAndAsh.Network
-import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Logging
+import Game.GoreAndAsh.Network
+import Game.GoreAndAsh.SDL
+import Game.GoreAndAsh.Sync
 import Network.Socket
 import Options.Applicative
 
 import Game
+import Graphics
 
 -- | CLI options of client
 data Options = Options {
@@ -61,6 +63,7 @@ client Options{..} = do
         , clientOutcoming = 0
         })
       logInfoE $ ffor connectedE $ const "Connected to server!"
+      _ <- createMainWindow drawFrame defaultWindowCfg
       game
 
 main :: IO ()

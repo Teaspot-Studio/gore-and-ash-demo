@@ -8,9 +8,10 @@ import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Network
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
+import Game.GoreAndAsh.SDL
 
 -- | Application monad that is used for implementation of game API
-type AppMonad = SyncT Spider (TimerT Spider (NetworkT Spider (LoggingT Spider(GameMonad Spider))))
+type AppMonad = SDLT Spider (SyncT Spider (TimerT Spider (NetworkT Spider (LoggingT Spider(GameMonad Spider)))))
 
 -- | Client logic
 game :: AppMonad ()

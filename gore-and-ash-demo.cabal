@@ -25,6 +25,7 @@ executable gore-and-ash-demo-client
 
   other-modules:
     Game
+    Graphics
 
   build-depends:
       base                              >= 4.7      && < 5
@@ -58,6 +59,7 @@ executable gore-and-ash-demo-client
     OverloadedStrings
     RankNTypes
     RecordWildCards
+    ScopedTypeVariables
     TypeFamilies
 
   ghc-options: -Wall -threaded
