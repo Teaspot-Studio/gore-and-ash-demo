@@ -15,7 +15,6 @@ import GHC.Generics
 import Linear
 import Store()
 
-import Game.GoreAndAsh
 import Game.GoreAndAsh.Sync
 
 -- | Unique player id
@@ -27,13 +26,13 @@ instance Store PlayerId
 -- | Shared player info
 data Player t s = Player {
 -- | Player position
-  playerPos    :: !(Dynamic t (V2 Double))
+  playerPos    :: !(V2 Double)
 -- | Player color
-, playerColor  :: !(Dynamic t (V3 Double))
+, playerColor  :: !(V3 Double)
 -- | Player absolute speed
-, playerSpeed  :: !(Dynamic t Double)
+, playerSpeed  :: !Double
 -- | Player size
-, playerSize   :: !(Dynamic t Double)
+, playerSize   :: !Double
 -- | Player other information
 , playerCustom :: !s
 } deriving (Generic)

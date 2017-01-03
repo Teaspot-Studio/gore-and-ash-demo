@@ -60,7 +60,7 @@ playersCollection = do
               return $ M.insert (PlayerId i) (Just connPeer) delMap
     -- collection primitive, note recursive dependency
     colorRoller <- makeColorRoller
-    playersMapDyn <- hostSimpleCollection playerCollectionId mempty updE (player colorRoller)
+    playersMapDyn <- joinDynThroughMap <$> hostSimpleCollection playerCollectionId mempty updE (player colorRoller)
     -- post processing to get peer-id map
     let playersMappingDyn :: Dynamic t (PlayerMapping t)
         playersMappingDyn = do
@@ -80,7 +80,7 @@ data ServerPlayerExt t = ServerPlayerExt {
 }
 
 -- | Player component
-player :: AppFrame t => ItemRoller t (V3 Double) -> PlayerId -> Peer -> AppMonad t (ServerPlayer t)
+player :: AppFrame t => ItemRoller t (V3 Double) -> PlayerId -> Peer -> AppMonad t (Dynamic t (ServerPlayer t))
 player colorRoller i peer = do
   -- Initialisation
   buildE <- getPostBuild
@@ -88,28 +88,28 @@ player colorRoller i peer = do
   _ <- performEvent_ $ ffor buildE $ const $ liftIO $ snd colorRoller
   -- Sync player with clients
   c <- sample . current $ fst colorRoller
-  let initPlayer = initialPlayer c
+  let playerDyn = pure $ initialPlayer c
 
   let yourIdMsgE = ffor buildE $ const [YourPlayerId i]
   let commandsE = yourIdMsgE
-  syncPlayer commandsE initPlayer
-  return initPlayer
+  _ <- syncPlayer commandsE playerDyn
+  return playerDyn
   where
     initialPlayer c = Player {
-        playerPos    = pure 0
-      , playerColor  = pure c
-      , playerSpeed  = pure 50
-      , playerSize   = pure 20
+        playerPos    = 0
+      , playerColor  = c
+      , playerSpeed  = 1
+      , playerSize   = 5
       , playerCustom = ServerPlayerExt {
           playerPeer = peer
         }
       }
-    syncPlayer commandsE Player{..} = syncWithName (show i) $ do
+    syncPlayer commandsE pdyn = syncWithName (show i) () $ do
       peers <- networkPeers
-      _ <- syncToClients peers playerPosId   UnreliableMessage playerPos
-      _ <- syncToClients peers playerColorId ReliableMessage playerColor
-      _ <- syncToClients peers playerSpeedId ReliableMessage playerSpeed
-      _ <- syncToClients peers playerSizeId  ReliableMessage playerSize
+      _ <- syncToClients peers playerPosId   UnreliableMessage $ playerPos <$> pdyn
+      _ <- syncToClients peers playerColorId ReliableMessage $ playerColor <$> pdyn
+      _ <- syncToClients peers playerSpeedId ReliableMessage $ playerSpeed <$> pdyn
+      _ <- syncToClients peers playerSizeId  ReliableMessage $ playerSize <$> pdyn
       _ <- sendToClientMany playerCommandId ReliableMessage commandsE peer
       return ()
 

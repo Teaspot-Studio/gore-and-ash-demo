@@ -18,22 +18,21 @@ import Game.GoreAndAsh.Sync
 
 -- | Hold client-side state of game
 data Game t = Game {
-  gameGlobals :: Dynamic t GameGlobal
-, gamePlayers :: Dynamic t (Map PlayerId (ClientPlayer t))
-, gameCamera  :: Dynamic t Camera
+  gameGlobals :: GameGlobal
+, gamePlayers :: Map PlayerId (ClientPlayer t)
+, gameCamera  :: Camera
 }
 
 -- | Client logic
-playGame :: AppFrame t => WindowWidget t -> AppMonad t (Game t)
+playGame :: AppFrame t => WindowWidget t -> AppMonad t (Dynamic t (Game t))
 playGame w = do
   globals <- receiveGlobals
   players <- handlePlayers
   cam     <- camera w
-  return Game {
-      gameGlobals = globals
-    , gamePlayers = players
-    , gameCamera  = cam
-    }
+  return $ Game
+    <$> globals
+    <*> players
+    <*> cam
 
 -- | Get info about globals from server
 receiveGlobals :: AppFrame t => AppMonad t (Dynamic t GameGlobal)

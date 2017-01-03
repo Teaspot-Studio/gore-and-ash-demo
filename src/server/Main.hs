@@ -38,7 +38,7 @@ server Options{..} = do
     clientGame :: AppMonad Spider ()
     clientGame = do
       e <- getPostBuild
-      loggingSetDebugFlag False
+      loggingSetDebugFlag True
       listenE <- dontCare =<< (serverListen $ ffor e $ const $ ServerListen {
           listenAddress = SockAddrInet optionPort 0
         , listenMaxConns = 100

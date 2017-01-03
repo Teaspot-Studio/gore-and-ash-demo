@@ -54,6 +54,7 @@ client Options{..} = do
 
     clientGame :: AppMonad Spider ()
     clientGame = do
+      loggingSetDebugFlag True
       addr <- resolveServer optionHostName optionService
       e <- getPostBuild
       connectedE <- dontCare =<< (clientConnect $ ffor e $ const $ ClientConnect {
@@ -63,9 +64,15 @@ client Options{..} = do
         , clientOutcoming = 0
         })
       logInfoE $ ffor connectedE $ const "Connected to server!"
+      _ <- switchAppHost (pure mempty) $ ffor connectedE $ const playPhase
+      return ()
+
+    playPhase :: AppMonad Spider ()
+    playPhase = do
       rec
-        w <- createMainWindow (drawFrame gameDyn) defaultWindowCfg
+        w <- createMainWindow redrawE (drawFrame gameDyn) defaultWindowCfg
         gameDyn <- playGame w
+        let redrawE = const () <$> updated gameDyn
       return ()
 
 main :: IO ()

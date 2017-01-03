@@ -2,37 +2,36 @@ module Graphics(
     drawFrame
   ) where
 
-import Control.Monad.IO.Class
-import Foreign.C
-import SDL (get)
-
 import Game.GoreAndAsh
 import Game.GoreAndAsh.SDL
 
+import Data.Map.Strict (Map)
 import Game
+import Game.Camera
+import Game.Client.Player
+import Game.Monad
+import Game.Player
+import Graphics.Square
 
-drawFrame :: forall t . (ReflexHost t, MonadIO (HostFrame t))
-  => Game t -> Window -> Renderer -> HostFrame t ()
-drawFrame _ _ r = do
-  rendererDrawColor r $= V4 0 0 0 0
+-- | Here all code needed to draw a single game frame is located
+drawFrame :: forall t . AppFrame t => Dynamic t (Game t)
+  -> Window -- ^ Window where to draw
+  -> Renderer  -- ^ Renderer to use
+  -> HostFrame t ()
+drawFrame gameDyn w r = do
+  rendererDrawColor r $= V4 200 200 200 255
   clear r
-  rendererDrawColor r $= V4 250 0 0 0
-  ws <- getCurrentSize
-  let squareRect :: Rectangle Double
-      squareRect = Rectangle (P $ V2 0.1 0.1) (V2 0.8 0.8)
-  fillRect r (Just $ resizeRect ws squareRect)
-  where
-    getCurrentSize :: HostFrame t (V2 CInt)
-    getCurrentSize = do
-      vp <- get (rendererViewport r)
-      case vp of
-        Nothing -> return 0
-        Just (Rectangle _ s) -> return s
+  Game{..} <- sample . current $ gameDyn
+  drawPlayers w r gamePlayers gameCamera
 
-    resizeRect :: V2 CInt -> Rectangle Double -> Rectangle CInt
-    resizeRect (V2 vw vh) (Rectangle (P (V2 x y)) (V2 w h)) = Rectangle (P (V2 x' y')) (V2 w' h')
-      where
-        x' = round $ x * fromIntegral vw
-        y' = round $ y * fromIntegral vh
-        w' = round $ w * fromIntegral vw
-        h' = round $ h * fromIntegral vh
+-- | Draw players
+drawPlayers :: forall t . AppFrame t
+  => Window -- ^ Window where to draw
+  -> Renderer -- ^ Renderer to use
+  -> Map PlayerId (ClientPlayer t) -- ^ Players collection
+  -> Camera -- ^ User camera (defines transformation of canvas)
+  -> HostFrame t ()
+drawPlayers w r playersMap cam = mapM_ drawPlayer playersMap
+  where
+    drawPlayer Player{..} = do
+      renderSquare w r cam playerSize playerPos playerColor
