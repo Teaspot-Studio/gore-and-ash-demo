@@ -63,8 +63,10 @@ client Options{..} = do
         , clientOutcoming = 0
         })
       logInfoE $ ffor connectedE $ const "Connected to server!"
-      _ <- createMainWindow drawFrame defaultWindowCfg
-      playGame
+      rec
+        _ <- createMainWindow (drawFrame gameDyn) defaultWindowCfg
+        gameDyn <- playGame
+      return ()
 
 main :: IO ()
 main = execParser opts >>= client

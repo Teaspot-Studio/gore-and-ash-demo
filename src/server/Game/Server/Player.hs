@@ -19,10 +19,10 @@ import Game.Monad
 import Game.Player
 
 -- | Contains mappings between player ids, peers and player payload
-type PlayerMapping = (Map PlayerId ServerPlayer, Map Peer PlayerId)
+type PlayerMapping t = (Map PlayerId (ServerPlayer t), Map Peer PlayerId)
 
 -- | Shared players collection
-playersCollection :: forall t . AppFrame t => AppMonad t (Dynamic t PlayerMapping)
+playersCollection :: forall t . AppFrame t => AppMonad t (Dynamic t (PlayerMapping t))
 playersCollection = do
   -- we need a player counter to generate ids
   playerCounterRef <- newExternalRef (0 :: Int)
@@ -55,7 +55,7 @@ playersCollection = do
     -- collection primitive, note recursive dependency
     playersMapDyn <- hostSimpleCollection playerCollectionId mempty updE player
     -- post processing to get peer-id map
-    let playersMappingDyn :: Dynamic t PlayerMapping
+    let playersMappingDyn :: Dynamic t (PlayerMapping t)
         playersMappingDyn = do
           playersMap <- playersMapDyn
           let elems = M.toList $ playerPeer . playerCustom <$> playersMap
@@ -64,13 +64,13 @@ playersCollection = do
   return playersMappingDyn
 
 -- | Extension of shared player with server private data
-type ServerPlayer = Player ServerPlayerExt
+type ServerPlayer t  = Player t (ServerPlayerExt t)
 
 -- | Player server private data
-data ServerPlayerExt = ServerPlayerExt {
+data ServerPlayerExt t = ServerPlayerExt {
   playerPeer :: Peer
 }
 
 -- | Player component
-player :: PlayerId -> Peer -> AppMonad t ServerPlayer
+player :: PlayerId -> Peer -> AppMonad t (ServerPlayer t)
 player _ _ = undefined

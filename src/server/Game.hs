@@ -13,7 +13,7 @@ import Game.Server.Player
 -- | Server game state
 data Game t = Game {
   gameGlobals :: Dynamic t GameGlobal
-, gamePlayers :: Dynamic t PlayerMapping
+, gamePlayers :: Dynamic t (PlayerMapping t)
 }
 
 -- | Server logic

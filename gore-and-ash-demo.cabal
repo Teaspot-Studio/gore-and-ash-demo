@@ -25,6 +25,7 @@ executable gore-and-ash-demo-client
 
   other-modules:
     Game
+    Game.Client.Player
     Game.Global
     Game.Monad
     Game.Player

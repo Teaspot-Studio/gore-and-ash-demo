@@ -9,9 +9,11 @@ import SDL (get)
 import Game.GoreAndAsh
 import Game.GoreAndAsh.SDL
 
+import Game
+
 drawFrame :: forall t . (ReflexHost t, MonadIO (HostFrame t))
-  => Window -> Renderer -> HostFrame t ()
-drawFrame _ r = do
+  => Game t -> Window -> Renderer -> HostFrame t ()
+drawFrame _ _ r = do
   rendererDrawColor r $= V4 0 0 0 0
   clear r
   rendererDrawColor r $= V4 250 0 0 0

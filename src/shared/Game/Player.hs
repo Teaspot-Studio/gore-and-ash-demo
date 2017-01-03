@@ -17,7 +17,7 @@ newtype PlayerId = PlayerId { unPlayerId :: Int }
 instance Store PlayerId
 
 -- | Shared player info
-data Player s = Player {
+data Player t s = Player {
 -- | Player position
   playerPos    :: !(V2 Double)
 -- | Player color
