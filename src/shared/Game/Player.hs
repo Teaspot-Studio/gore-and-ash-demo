@@ -2,12 +2,19 @@ module Game.Player(
     PlayerId(..)
   , Player(..)
   , playerCollectionId
+  , playerCommandId
+  , playerPosId
+  , playerColorId
+  , playerSpeedId
+  , playerSizeId
   ) where
 
-import GHC.Generics
 import Data.Store
+import GHC.Generics
 import Linear
+import Store()
 
+import Game.GoreAndAsh
 import Game.GoreAndAsh.Sync
 
 -- | Unique player id
@@ -19,17 +26,27 @@ instance Store PlayerId
 -- | Shared player info
 data Player t s = Player {
 -- | Player position
-  playerPos    :: !(V2 Double)
+  playerPos    :: !(Dynamic t (V2 Double))
 -- | Player color
-, playerColor  :: !(V3 Double)
+, playerColor  :: !(Dynamic t (V3 Double))
 -- | Player absolute speed
-, playerSpeed  :: !Double
+, playerSpeed  :: !(Dynamic t Double)
 -- | Player size
-, playerSize   :: !Double
+, playerSize   :: !(Dynamic t Double)
 -- | Player other information
 , playerCustom :: !s
-} deriving (Generic, Show)
+} deriving (Generic)
+
+instance Functor (Player t) where
+  fmap f p = p { playerCustom = f $ playerCustom p }
 
 -- | ID of shared player collection
 playerCollectionId :: SyncItemId
 playerCollectionId = 1
+
+playerPosId, playerColorId, playerSpeedId, playerSizeId, playerCommandId :: SyncItemId
+playerCommandId = 0
+playerPosId     = 1
+playerColorId   = 2
+playerSpeedId   = 3
+playerSizeId    = 4

@@ -30,6 +30,7 @@ executable gore-and-ash-demo-client
     Game.Monad
     Game.Player
     Graphics
+    Store
 
   build-depends:
       base                              >= 4.7      && < 5
@@ -88,6 +89,7 @@ executable gore-and-ash-demo-server
     Game.Monad
     Game.Player
     Game.Server.Player
+    Store
 
   build-depends:
       base                          >= 4.7          && < 5
