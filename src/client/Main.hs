@@ -64,8 +64,8 @@ client Options{..} = do
         })
       logInfoE $ ffor connectedE $ const "Connected to server!"
       rec
-        _ <- createMainWindow (drawFrame gameDyn) defaultWindowCfg
-        gameDyn <- playGame
+        w <- createMainWindow (drawFrame gameDyn) defaultWindowCfg
+        gameDyn <- playGame w
       return ()
 
 main :: IO ()
