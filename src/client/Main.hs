@@ -52,7 +52,7 @@ client Options{..} = do
         networkDetailedLogging = False
       }
 
-    clientGame :: AppMonad ()
+    clientGame :: AppMonad Spider ()
     clientGame = do
       addr <- resolveServer optionHostName optionService
       e <- getPostBuild
@@ -64,7 +64,7 @@ client Options{..} = do
         })
       logInfoE $ ffor connectedE $ const "Connected to server!"
       _ <- createMainWindow drawFrame defaultWindowCfg
-      game
+      playGame
 
 main :: IO ()
 main = execParser opts >>= client

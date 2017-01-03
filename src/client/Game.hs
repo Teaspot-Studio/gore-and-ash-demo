@@ -1,18 +1,10 @@
 module Game(
-    game
+    playGame
   , AppMonad
   ) where
 
-import Game.GoreAndAsh
-import Game.GoreAndAsh.Logging
-import Game.GoreAndAsh.Network
-import Game.GoreAndAsh.Sync
-import Game.GoreAndAsh.Time
-import Game.GoreAndAsh.SDL
-
--- | Application monad that is used for implementation of game API
-type AppMonad = SDLT Spider (SyncT Spider (TimerT Spider (NetworkT Spider (LoggingT Spider(GameMonad Spider)))))
+import Game.Monad
 
 -- | Client logic
-game :: AppMonad ()
-game = return ()
+playGame :: AppFrame t => AppMonad t ()
+playGame = return ()

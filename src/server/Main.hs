@@ -35,7 +35,7 @@ server Options{..} = do
         networkDetailedLogging = False
       }
 
-    clientGame :: AppMonad ()
+    clientGame :: AppMonad Spider ()
     clientGame = do
       e <- getPostBuild
       loggingSetDebugFlag False
@@ -54,7 +54,8 @@ server Options{..} = do
       discE <- peerDisconnected
       logInfoE $ ffor discE $ const $ "Peer is disconnected..."
 
-      game
+      _ <- playGame
+      return ()
 
 main :: IO ()
 main = execParser opts >>= server
