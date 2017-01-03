@@ -17,14 +17,14 @@ import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
 
 -- | Hold client-side state of game
-data Game t = Game {
+data Game = Game {
   gameGlobals :: GameGlobal
-, gamePlayers :: Map PlayerId (ClientPlayer t)
+, gamePlayers :: Map PlayerId ClientPlayer
 , gameCamera  :: Camera
 }
 
 -- | Client logic
-playGame :: AppFrame t => WindowWidget t -> AppMonad t (Dynamic t (Game t))
+playGame :: AppFrame t => WindowWidget t -> AppMonad t (Dynamic t Game)
 playGame w = do
   globals <- receiveGlobals
   players <- handlePlayers

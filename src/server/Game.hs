@@ -11,20 +11,19 @@ import Game.Monad
 import Game.Server.Player
 
 -- | Server game state
-data Game t = Game {
-  gameGlobals :: Dynamic t GameGlobal
-, gamePlayers :: Dynamic t (PlayerMapping t)
+data Game = Game {
+  gameGlobals :: GameGlobal
+, gamePlayers :: PlayerMapping
 }
 
 -- | Server logic
-playGame :: AppFrame t => AppMonad t (Game t)
+playGame :: AppFrame t => AppMonad t (Dynamic t Game)
 playGame = do
   globals <- processGameGlobals
   players <- playersCollection
-  return Game {
-      gameGlobals = globals
-    , gamePlayers = players
-    }
+  return $ Game
+    <$> globals
+    <*> players
 
 -- | Handle game globals
 processGameGlobals :: AppFrame t => AppMonad t (Dynamic t GameGlobal)

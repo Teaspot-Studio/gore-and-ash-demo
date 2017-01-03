@@ -24,7 +24,7 @@ newtype PlayerId = PlayerId { unPlayerId :: Int }
 instance Store PlayerId
 
 -- | Shared player info
-data Player t s = Player {
+data Player s = Player {
 -- | Player position
   playerPos    :: !(V2 Double)
 -- | Player color
@@ -37,7 +37,7 @@ data Player t s = Player {
 , playerCustom :: !s
 } deriving (Generic)
 
-instance Functor (Player t) where
+instance Functor Player where
   fmap f p = p { playerCustom = f $ playerCustom p }
 
 -- | ID of shared player collection

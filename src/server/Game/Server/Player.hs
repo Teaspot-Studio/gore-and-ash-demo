@@ -25,10 +25,10 @@ import Game.Monad
 import Game.Player
 
 -- | Contains mappings between player ids, peers and player payload
-type PlayerMapping t = (Map PlayerId (ServerPlayer t), Map Peer PlayerId)
+type PlayerMapping = (Map PlayerId ServerPlayer, Map Peer PlayerId)
 
 -- | Shared players collection
-playersCollection :: forall t . AppFrame t => AppMonad t (Dynamic t (PlayerMapping t))
+playersCollection :: forall t . AppFrame t => AppMonad t (Dynamic t PlayerMapping)
 playersCollection = do
   -- we need a player counter to generate ids
   playerCounterRef <- newExternalRef (0 :: Int)
@@ -62,7 +62,7 @@ playersCollection = do
     colorRoller <- makeColorRoller
     playersMapDyn <- joinDynThroughMap <$> hostSimpleCollection playerCollectionId mempty updE (player colorRoller)
     -- post processing to get peer-id map
-    let playersMappingDyn :: Dynamic t (PlayerMapping t)
+    let playersMappingDyn :: Dynamic t PlayerMapping
         playersMappingDyn = do
           playersMap <- playersMapDyn
           let elems = M.toList $ playerPeer . playerCustom <$> playersMap
@@ -72,15 +72,18 @@ playersCollection = do
   return playersMappingDyn
 
 -- | Extension of shared player with server private data
-type ServerPlayer t  = Player t (ServerPlayerExt t)
+type ServerPlayer = Player ServerPlayerExt
 
 -- | Player server private data
-data ServerPlayerExt t = ServerPlayerExt {
+data ServerPlayerExt = ServerPlayerExt {
   playerPeer :: Peer
 }
 
 -- | Player component
-player :: AppFrame t => ItemRoller t (V3 Double) -> PlayerId -> Peer -> AppMonad t (Dynamic t (ServerPlayer t))
+player :: AppFrame t => ItemRoller t (V3 Double) -- ^ Roller of colors
+  -> PlayerId -- ^ Player ID that is simulated
+  -> Peer -- ^ Player peer
+  -> AppMonad t (Dynamic t ServerPlayer)
 player colorRoller i peer = do
   -- Initialisation
   buildE <- getPostBuild

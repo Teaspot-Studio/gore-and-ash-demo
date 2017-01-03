@@ -1,7 +1,6 @@
 module Game.Client.Player(
     handlePlayers
   , ClientPlayer
-  , ClientPlayerExt(..)
   ) where
 
 import Control.Monad
@@ -17,21 +16,20 @@ import Game.GoreAndAsh.Sync
 import Game.Monad
 import Game.Player
 
--- | Private client data about player
-data ClientPlayerExt t = ClientPlayerExt {
-
-  }
-
 -- | Extended player with client data
-type ClientPlayer t = Player t (ClientPlayerExt t)
+type ClientPlayer = Player ()
 
 -- | Sync players states from server
-handlePlayers :: AppFrame t => AppMonad t (Dynamic t (Map PlayerId (ClientPlayer t)))
+handlePlayers :: AppFrame t => AppMonad t (Dynamic t (Map PlayerId ClientPlayer))
 handlePlayers = do
   joinDynThroughMap <$> remoteCollection playerCollectionId player
 
+-- | Client side controller for personal player
+-- localPlayer :: forall t . AppFrame t => AppMonad t (Dynamic t ClientPlayer)
+-- localPlayer = undefined
+
 -- | Client side controller for player
-player :: forall t . AppFrame t => PlayerId -> Peer -> AppMonad t (Dynamic t (ClientPlayer t))
+player :: forall t . AppFrame t => PlayerId -> Peer -> AppMonad t (Dynamic t ClientPlayer)
 player i _ = do
   buildE <- getPostBuild
   logInfoE $ ffor buildE $ const $ "Player " <> showl i <> " is created!"
@@ -44,10 +42,10 @@ player i _ = do
       , playerColor  = V3 1 0 0
       , playerSpeed  = 50
       , playerSize   = 20
-      , playerCustom = ClientPlayerExt
+      , playerCustom = ()
       }
 
-    syncPlayer :: AppMonad t (Dynamic t (ClientPlayer t))
+    syncPlayer :: AppMonad t (Dynamic t ClientPlayer)
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
       pos <- syncFromServer playerPosId   0
       col <- syncFromServer playerColorId 0
@@ -58,9 +56,9 @@ player i _ = do
         <*> col
         <*> spd
         <*> siz
-        <*> pure ClientPlayerExt
+        <*> pure ()
 
-    printPlayer :: Dynamic t (ClientPlayer t) -> AppMonad t ()
+    printPlayer :: Dynamic t ClientPlayer -> AppMonad t ()
     printPlayer pdyn =
       logInfoE $ ffor (updated pdyn) $ \Player{..} -> "Player:\n"
         <> "\tid:    " <> showl i   <> "\n"

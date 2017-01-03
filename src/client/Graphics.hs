@@ -14,7 +14,7 @@ import Game.Player
 import Graphics.Square
 
 -- | Here all code needed to draw a single game frame is located
-drawFrame :: forall t . AppFrame t => Dynamic t (Game t)
+drawFrame :: forall t . AppFrame t => Dynamic t Game
   -> Window -- ^ Window where to draw
   -> Renderer  -- ^ Renderer to use
   -> HostFrame t ()
@@ -28,7 +28,7 @@ drawFrame gameDyn w r = do
 drawPlayers :: forall t . AppFrame t
   => Window -- ^ Window where to draw
   -> Renderer -- ^ Renderer to use
-  -> Map PlayerId (ClientPlayer t) -- ^ Players collection
+  -> Map PlayerId ClientPlayer -- ^ Players collection
   -> Camera -- ^ User camera (defines transformation of canvas)
   -> HostFrame t ()
 drawPlayers w r playersMap cam = mapM_ drawPlayer playersMap
