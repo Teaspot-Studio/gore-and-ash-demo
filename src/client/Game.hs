@@ -29,7 +29,7 @@ data Game = Game {
 playGame :: AppFrame t => WindowWidget t -> AppMonad t (Dynamic t Game)
 playGame w = do
   globals     <- receiveGlobals
-  playersInfo <- handlePlayers
+  playersInfo <- handlePlayers w
   cam         <- camera w
   return $ Game
     <$> globals

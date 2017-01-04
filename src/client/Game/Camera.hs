@@ -80,7 +80,7 @@ camera w = do
 -- | Calculate transformation matrix for camera
 cameraMatrix :: Camera -> M33 Double
 cameraMatrix Camera{..} = translate2D (V2 (-cameraPos^._x) (-cameraPos^._y))
-  !*! scale2D (V2 (-cameraZoom) (-cameraZoom))
+  !*! scale2D (V2 cameraZoom cameraZoom)
 
 -- | Transform camera local coords to world
 cameraToWorld :: Camera -> V2 Double -> V2 Double

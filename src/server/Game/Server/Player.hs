@@ -5,6 +5,7 @@ module Game.Server.Player(
   , ServerPlayerExt(..)
   ) where
 
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.Align
 import Data.List.NonEmpty (NonEmpty)
@@ -15,6 +16,7 @@ import Linear
 
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
+import qualified Data.Set as S
 
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Logging
@@ -80,7 +82,8 @@ data ServerPlayerExt = ServerPlayerExt {
 }
 
 -- | Player component
-player :: AppFrame t => ItemRoller t (V3 Double) -- ^ Roller of colors
+player :: forall t . AppFrame t
+  => ItemRoller t (V3 Double) -- ^ Roller of colors
   -> PlayerId -- ^ Player ID that is simulated
   -> Peer -- ^ Player peer
   -> AppMonad t (Dynamic t ServerPlayer)
@@ -96,13 +99,12 @@ player colorRoller i peer = do
   let yourIdMsgE = ffor buildE $ const [YourPlayerId i]
   let commandsE = yourIdMsgE
   _ <- syncCommands commandsE
-  _ <- syncPlayer playerDyn
-  return playerDyn
+  syncPlayer playerDyn
   where
     initialPlayer c = Player {
         playerPos    = 0
       , playerColor  = c
-      , playerSpeed  = 1
+      , playerSpeed  = 50
       , playerSize   = 5
       , playerCustom = ServerPlayerExt {
           playerPeer = peer
@@ -110,13 +112,26 @@ player colorRoller i peer = do
       }
 
     -- synchronisation of state
-    syncPlayer pdyn = syncWithName (show i) () $ do
-      peers <- networkPeers
-      _ <- syncToClients peers playerPosId   UnreliableMessage $ playerPos <$> pdyn
-      _ <- syncToClients peers playerColorId ReliableMessage $ playerColor <$> pdyn
-      _ <- syncToClients peers playerSpeedId ReliableMessage $ playerSpeed <$> pdyn
-      _ <- syncToClients peers playerSizeId  ReliableMessage $ playerSize <$> pdyn
-      return ()
+    syncPlayer :: Dynamic t ServerPlayer -> AppMonad t (Dynamic t ServerPlayer)
+    syncPlayer pdyn = fmap join $ syncWithName (show i) pdyn $ do
+      allPeers <- networkPeers
+      let otherPeers = S.delete peer <$> allPeers
+      posDyn <- syncPosition
+      _ <- syncToClients otherPeers playerPosId UnreliableMessage posDyn
+      _ <- syncToClients allPeers playerColorId ReliableMessage $ playerColor <$> pdyn
+      _ <- syncToClients allPeers playerSpeedId ReliableMessage $ playerSpeed <$> pdyn
+      _ <- syncToClients allPeers playerSizeId  ReliableMessage $ playerSize <$> pdyn
+      return $ do
+        pos <- posDyn
+        p <- pdyn
+        return $ p { playerPos = pos }
+
+    -- Synchronise position from client
+    syncPosition :: AppMonad t (Dynamic t (V2 Double))
+    syncPosition = do
+      let reject _ = return Nothing -- TODO: add rejection test for actual speed > expected
+      posDyn <- syncFromClient playerPosId (return $ pure 0) reject peer
+      return posDyn
 
     -- process network messages for player
     syncCommands commandsE = do

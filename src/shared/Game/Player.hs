@@ -8,14 +8,18 @@ module Game.Player(
   , playerSpeedId
   , playerSizeId
   , PlayerCommand(..)
+  , printPlayer
   ) where
 
+import Data.Monoid
 import Data.Store
 import GHC.Generics
 import Linear
 import Store()
 
+import Game.GoreAndAsh
 import Game.GoreAndAsh.Sync
+import Game.GoreAndAsh.Logging
 
 -- | Unique player id
 newtype PlayerId = PlayerId { unPlayerId :: Int }
@@ -58,3 +62,14 @@ data PlayerCommand =
   deriving (Generic)
 
 instance Store PlayerCommand
+
+-- | Display info about player
+printPlayer :: (LoggingMonad t m, Show s) => PlayerId -> Dynamic t (Player s) -> m ()
+printPlayer i pdyn =
+  logInfoE $ ffor (updated pdyn) $ \Player{..} -> "Player:\n"
+    <> "\tid:    " <> showl i   <> "\n"
+    <> "\tpos:   " <> showl playerPos <> "\n"
+    <> "\tcolor: " <> showl playerColor <> "\n"
+    <> "\tspd:   " <> showl playerSpeed <> "\n"
+    <> "\tsize:  " <> showl playerSize <> "\n"
+    <> "\tcustom:" <> showl playerCustom

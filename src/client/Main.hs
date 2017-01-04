@@ -2,16 +2,19 @@ module Main where
 
 import Control.Lens
 import Control.Monad.IO.Class
+import Data.IORef
 import Data.Monoid
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Network
 import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
+import Game.GoreAndAsh.Time
 import Network.Socket
 import Options.Applicative
 
 import Game
+import Game.Monad
 import Graphics
 
 -- | CLI options of client
@@ -70,10 +73,22 @@ client Options{..} = do
     playPhase :: AppMonad Spider ()
     playPhase = do
       rec
-        w <- createMainWindow redrawE (drawFrame gameDyn) defaultWindowCfg
+        w <- createMainWindow (const () <$> redrawE) (drawFrame gameDyn) defaultWindowCfg
         gameDyn <- playGame w
-        let redrawE = const () <$> updated gameDyn
+        redrawE <- alignWithFps 60 $ updated gameDyn
       return ()
+
+-- | Fire event not frequently as given frame per second ratio.
+alignWithFps :: AppFrame t => Int -- ^ FPS (frames per second)
+  -> Event t a -- ^ Event that frequently changes
+  -> AppMonad t (Event t a) -- ^ Event that changes are aligned with FPS
+alignWithFps fps ea = do
+  fpsE <- tickEvery . realToFrac $ 1 / (fromIntegral fps :: Double)
+  ref <- liftIO $ newIORef Nothing
+  performEvent_ $ ffor ea $ liftIO . atomicWriteIORef ref . Just
+  alignedE <- performEvent $ ffor fpsE $ const $
+    liftIO $ atomicModifyIORef' ref $ \v -> (Nothing, v)
+  return $ fmapMaybe id alignedE
 
 main :: IO ()
 main = execParser opts >>= client
