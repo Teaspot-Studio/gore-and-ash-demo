@@ -4,13 +4,10 @@ module Game(
   , Game(..)
   ) where
 
-import Data.Map.Strict (Map)
-
 import Game.Camera
 import Game.Client.Player
 import Game.Global
 import Game.Monad
-import Game.Player
 
 import Game.GoreAndAsh
 import Game.GoreAndAsh.SDL
@@ -18,20 +15,26 @@ import Game.GoreAndAsh.Sync
 
 -- | Hold client-side state of game
 data Game = Game {
-  gameGlobals :: GameGlobal
-, gamePlayers :: Map PlayerId ClientPlayer
-, gameCamera  :: Camera
+  -- | Global values of game (ex. score)
+  gameGlobals     :: GameGlobal
+  -- | Local player that is controlled by user
+, gameLocalPlayer :: LocalPlayer
+  -- | Other players that are controlled by other users
+, gamePlayers     :: RemotePlayers
+  -- | Local player camera
+, gameCamera      :: Camera
 }
 
 -- | Client logic
 playGame :: AppFrame t => WindowWidget t -> AppMonad t (Dynamic t Game)
 playGame w = do
-  globals <- receiveGlobals
-  players <- handlePlayers
-  cam     <- camera w
+  globals     <- receiveGlobals
+  playersInfo <- handlePlayers
+  cam         <- camera w
   return $ Game
     <$> globals
-    <*> players
+    <*> fmap fst playersInfo
+    <*> fmap snd playersInfo
     <*> cam
 
 -- | Get info about globals from server

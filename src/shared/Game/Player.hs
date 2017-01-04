@@ -45,14 +45,16 @@ playerCollectionId :: SyncItemId
 playerCollectionId = 1
 
 playerPosId, playerColorId, playerSpeedId, playerSizeId, playerCommandId :: SyncItemId
-playerCommandId = 0
 playerPosId     = 1
 playerColorId   = 2
 playerSpeedId   = 3
 playerSizeId    = 4
+playerCommandId = 5
 
 -- | Commands to client side
-data PlayerCommand = YourPlayerId PlayerId -- ^ Inform about client player id
+data PlayerCommand =
+    RequestPlayerId       -- ^ Ask server for player id
+  | YourPlayerId PlayerId -- ^ Inform about client player id
   deriving (Generic)
 
 instance Store PlayerCommand

@@ -95,7 +95,8 @@ player colorRoller i peer = do
 
   let yourIdMsgE = ffor buildE $ const [YourPlayerId i]
   let commandsE = yourIdMsgE
-  _ <- syncPlayer commandsE playerDyn
+  _ <- syncCommands commandsE
+  _ <- syncPlayer playerDyn
   return playerDyn
   where
     initialPlayer c = Player {
@@ -107,13 +108,25 @@ player colorRoller i peer = do
           playerPeer = peer
         }
       }
-    syncPlayer commandsE pdyn = syncWithName (show i) () $ do
+
+    -- synchronisation of state
+    syncPlayer pdyn = syncWithName (show i) () $ do
       peers <- networkPeers
       _ <- syncToClients peers playerPosId   UnreliableMessage $ playerPos <$> pdyn
       _ <- syncToClients peers playerColorId ReliableMessage $ playerColor <$> pdyn
       _ <- syncToClients peers playerSpeedId ReliableMessage $ playerSpeed <$> pdyn
       _ <- syncToClients peers playerSizeId  ReliableMessage $ playerSize <$> pdyn
-      _ <- sendToClientMany playerCommandId ReliableMessage commandsE peer
+      return ()
+
+    -- process network messages for player
+    syncCommands commandsE = do
+      -- listen requests for id
+      msgE <- receiveFromClient playerCommandId peer
+      let respE = fforMaybe msgE $ \case
+            RequestPlayerId -> Just [YourPlayerId i]
+            _ -> Nothing
+      -- send commands/responses to peer
+      _ <- sendToClientMany playerCommandId ReliableMessage (commandsE <> respE) peer
       return ()
 
 -- | Create item roller for player colors

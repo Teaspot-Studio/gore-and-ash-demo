@@ -66,6 +66,7 @@ executable gore-and-ash-demo-client
     FlexibleContexts
     FlexibleInstances
     GeneralizedNewtypeDeriving
+    LambdaCase
     MultiParamTypeClasses
     OverloadedStrings
     RankNTypes
@@ -124,6 +125,7 @@ executable gore-and-ash-demo-server
     FlexibleContexts
     FlexibleInstances
     GeneralizedNewtypeDeriving
+    LambdaCase
     MultiParamTypeClasses
     OverloadedStrings
     RankNTypes
