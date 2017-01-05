@@ -40,26 +40,28 @@ playersCollection = do
   discPeerE <- peerDisconnected
   rec
     -- Lets calculate update actions for players collection
-    let
-      updE :: Event t (Map PlayerId (Maybe Peer))
-      updE = flip pushAlways (align connPeerE discPeerE) $ \e -> do
-        i <- sample . current $ playerCounter
-        case e of
-          This connPeer -> return $ M.singleton (PlayerId i) (Just connPeer)
-          That discPeer -> do
+    -- updE :: Event t (Map PlayerId (Maybe Peer))
+    updE <- performEvent $ ffor (align connPeerE discPeerE) $ \e -> do
+      i <- sample . current $ playerCounter
+      case e of
+        This connPeer -> do
+          modifyExternalRef playerCounterRef $ \v -> (v+1, ())
+          return $ M.singleton (PlayerId i) (Just connPeer)
+        That discPeer -> do
+          players <- sample . current $ fmap snd playersMappingDyn
+          return $ case M.lookup discPeer players of
+            Nothing -> mempty
+            Just i' -> M.singleton i' Nothing
+        These connPeer discPeer -> if connPeer == discPeer then return mempty
+          else do
+            modifyExternalRef playerCounterRef $ \v -> (v+1, ())
             players <- sample . current $ fmap snd playersMappingDyn
-            return $ case M.lookup discPeer players of
-              Nothing -> mempty
-              Just i' -> M.singleton i' Nothing
-          These connPeer discPeer -> if connPeer == discPeer then return mempty
-            else do
-              players <- sample . current $ fmap snd playersMappingDyn
-              let
-                delMap :: Map PlayerId (Maybe Peer)
-                delMap = case M.lookup discPeer players of
-                  Nothing -> mempty
-                  Just i' -> M.singleton i' Nothing
-              return $ M.insert (PlayerId i) (Just connPeer) delMap
+            let
+              delMap :: Map PlayerId (Maybe Peer)
+              delMap = case M.lookup discPeer players of
+                Nothing -> mempty
+                Just i' -> M.singleton i' Nothing
+            return $ M.insert (PlayerId i) (Just connPeer) delMap
     -- collection primitive, note recursive dependency
     colorRoller <- makeColorRoller
     playersMapDyn <- joinDynThroughMap <$> hostSimpleCollection playerCollectionId mempty updE (player colorRoller)
