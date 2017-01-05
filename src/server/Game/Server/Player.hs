@@ -26,6 +26,8 @@ import Game.GoreAndAsh.Sync
 import Game.Monad
 import Game.Player
 
+import Debug.Trace
+
 -- | Contains mappings between player ids, peers and player payload
 type PlayerMapping = (Map PlayerId ServerPlayer, Map Peer PlayerId)
 
@@ -102,7 +104,7 @@ player colorRoller i peer = do
   syncPlayer playerDyn
   where
     initialPlayer c = Player {
-        playerPos    = 0
+        playerPos    = initialPosition
       , playerColor  = c
       , playerSpeed  = 50
       , playerSize   = 5
@@ -110,13 +112,14 @@ player colorRoller i peer = do
           playerPeer = peer
         }
       }
+    initialPosition = V2 0 0
 
     -- synchronisation of state
     syncPlayer :: Dynamic t ServerPlayer -> AppMonad t (Dynamic t ServerPlayer)
     syncPlayer pdyn = fmap join $ syncWithName (show i) pdyn $ do
       allPeers <- networkPeers
       let otherPeers = S.delete peer <$> allPeers
-      posDyn <- syncPosition
+      posDyn <- syncPosition $ playerSpeed <$> pdyn
       _ <- syncToClients otherPeers playerPosId UnreliableMessage posDyn
       _ <- syncToClients allPeers playerColorId ReliableMessage $ playerColor <$> pdyn
       _ <- syncToClients allPeers playerSpeedId ReliableMessage $ playerSpeed <$> pdyn
@@ -126,11 +129,23 @@ player colorRoller i peer = do
         p <- pdyn
         return $ p { playerPos = pos }
 
-    -- Synchronise position from client
-    syncPosition :: AppMonad t (Dynamic t (V2 Double))
-    syncPosition = do
-      let reject _ = return Nothing -- TODO: add rejection test for actual speed > expected
-      posDyn <- syncFromClient playerPosId (return $ pure 0) reject peer
+    -- Synchronise position from client with rejecting if player moves too fast
+    syncPosition :: Dynamic t Double -> AppMonad t (Dynamic t (V2 Double))
+    syncPosition spdDyn = do
+      let dt = 1 :: Double -- ^ Check each second
+          epsylon = 0.1 :: Double -- ^ Accuracy of checking
+      rec
+        oldPosDyn <- lookPast (realToFrac dt) initialPosition rejectE posDyn
+        let rejectE = flip push (updated oldPosDyn) $ \oldPos -> do
+              pos <- sample . current $ posDyn
+              spd <- sample . current $ spdDyn
+              let absSpeed = norm (pos - oldPos) / dt
+                  expectedSpeed = spd * sqrt 2 * (1 + epsylon) -- diagonal movement
+              traceShow (absSpeed, expectedSpeed) $
+                return $ if absSpeed > expectedSpeed
+                  then Just oldPos
+                  else Nothing
+        (posDyn, _) <- syncFromClient playerPosId (return $ pure 0) rejectE peer
       return posDyn
 
     -- process network messages for player

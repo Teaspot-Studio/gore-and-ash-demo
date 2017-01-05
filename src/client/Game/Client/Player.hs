@@ -101,8 +101,9 @@ localPlayer w i = do
   where
     syncPlayer :: AppMonad t (Dynamic t LocalPlayer)
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
+      logMsgLnM LogInfo . showl =<< syncCurrentName
       col <- syncFromServer playerColorId 0
-      spd <- syncFromServer playerSpeedId 0
+      spd <- syncFromServer playerSpeedId 0 -- to test rejecting: return $ pure 700
       pos <- syncPosition spd
       siz <- syncFromServer playerSizeId  0
       return $ Player
@@ -145,6 +146,7 @@ localPlayer w i = do
     syncPosition :: Dynamic t Double -> AppMonad t (Dynamic t (V2 Double))
     syncPosition spdDyn = do
       moveE <- movePlayer spdDyn
+      logMsgLnM LogInfo . showl =<< syncCurrentName
       rec
         serverE <- syncToServer playerPosId ReliableMessage positionDyn
         let rejectE = serverRejected serverE
