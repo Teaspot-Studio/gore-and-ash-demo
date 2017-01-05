@@ -10,7 +10,7 @@ import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
 import Network.Socket
-import Options.Applicative
+import Options.Applicative as OA
 
 import Game
 import Graphics
@@ -19,6 +19,7 @@ import Graphics
 data Options = Options {
   optionHostName :: !HostName    -- ^ Host address of server
 , optionService  :: !ServiceName -- ^ Port of server
+, optionCheating :: !Bool        -- ^ Simulate hacked client
 }
 
 -- | Parser of CLI options
@@ -33,6 +34,10 @@ optionsParser = Options
        long "port"
     <> metavar "PORT_NUMBER"
     <> help "port of remote game server"
+    )
+  <*> OA.switch (
+       long "cheating"
+    <> help "simulate hacked client to test rejecting server behavior"
     )
 
 -- | Find server address by host name or IP
@@ -72,7 +77,7 @@ client Options{..} = do
     playPhase = do
       rec
         w <- createMainWindow (const () <$> redrawE) (drawFrame gameDyn) defaultWindowCfg
-        gameDyn <- playGame w
+        gameDyn <- playGame w optionCheating
         redrawE <- alignWithFps 60 $ updated gameDyn
       return ()
 

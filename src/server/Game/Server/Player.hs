@@ -26,8 +26,6 @@ import Game.GoreAndAsh.Sync
 import Game.Monad
 import Game.Player
 
-import Debug.Trace
-
 -- | Contains mappings between player ids, peers and player payload
 type PlayerMapping = (Map PlayerId ServerPlayer, Map Peer PlayerId)
 
@@ -132,7 +130,7 @@ player colorRoller i peer = do
     -- Synchronise position from client with rejecting if player moves too fast
     syncPosition :: Dynamic t Double -> AppMonad t (Dynamic t (V2 Double))
     syncPosition spdDyn = do
-      let dt = 1 :: Double -- ^ Check each second
+      let dt = 0.5 :: Double -- ^ Interval between cheats check
           epsylon = 0.1 :: Double -- ^ Accuracy of checking
       rec
         oldPosDyn <- lookPast (realToFrac dt) initialPosition rejectE posDyn
@@ -141,10 +139,9 @@ player colorRoller i peer = do
               spd <- sample . current $ spdDyn
               let absSpeed = norm (pos - oldPos) / dt
                   expectedSpeed = spd * sqrt 2 * (1 + epsylon) -- diagonal movement
-              traceShow (absSpeed, expectedSpeed) $
-                return $ if absSpeed > expectedSpeed
-                  then Just oldPos
-                  else Nothing
+              return $ if absSpeed > expectedSpeed
+                then Just oldPos
+                else Nothing
         (posDyn, _) <- syncFromClient playerPosId (return $ pure 0) rejectE peer
       return posDyn
 

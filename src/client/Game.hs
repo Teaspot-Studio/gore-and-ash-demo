@@ -26,10 +26,12 @@ data Game = Game {
 }
 
 -- | Client logic
-playGame :: AppFrame t => WindowWidget t -> AppMonad t (Dynamic t Game)
-playGame w = do
+playGame :: AppFrame t => WindowWidget t -- ^ Window where to draw game
+  -> Bool -- ^ Cheating flag, simulate hacked client
+  -> AppMonad t (Dynamic t Game)
+playGame w cheating = do
   globals     <- receiveGlobals
-  playersInfo <- handlePlayers w
+  playersInfo <- handlePlayers w cheating
   cam         <- camera w
   return $ Game
     <$> globals

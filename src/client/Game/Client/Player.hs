@@ -35,8 +35,10 @@ type RemotePlayer = ClientPlayer
 type LocalPlayer = ClientPlayer
 
 -- | Sync players states from server
-handlePlayers :: forall t . AppFrame t => WindowWidget t -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
-handlePlayers w = do
+handlePlayers :: forall t . AppFrame t => WindowWidget t -- ^ Window for player inputs
+  -> Bool -- ^ Cheating flag, simulate hacked client
+  -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
+handlePlayers w cheating = do
   -- unify phases that they have equal result types
   let
     phase1Unified :: AppMonad t (Event t PlayerId, Dynamic t (LocalPlayer, RemotePlayers))
@@ -74,7 +76,7 @@ handlePlayers w = do
     -- Now when we have local player id, we can load remote players
     phase2 :: PlayerId -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
     phase2 localId = do
-      lplayer <- localPlayer w localId
+      lplayer <- localPlayer w localId cheating
       remotePlayers <- joinDynThroughMap <$> remoteCollection playerCollectionId (player localId)
       return $ (,)
         <$> lplayer
@@ -91,8 +93,11 @@ initialPlayer = Player {
   }
 
 -- | Client side controller for personal player
-localPlayer :: forall t . AppFrame t => WindowWidget t -> PlayerId -> AppMonad t (Dynamic t LocalPlayer)
-localPlayer w i = do
+localPlayer :: forall t . AppFrame t => WindowWidget t -- ^ Window the player inputs are came from
+  -> PlayerId -- ^ ID of local player
+  -> Bool -- ^ Cheating flag, simulate hacked client
+  -> AppMonad t (Dynamic t LocalPlayer)
+localPlayer w i cheating = do
   buildE <- getPostBuild
   logInfoE $ ffor buildE $ const $ "Local player " <> showl i <> " is created!"
   p <- syncPlayer
@@ -103,7 +108,7 @@ localPlayer w i = do
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
       logMsgLnM LogInfo . showl =<< syncCurrentName
       col <- syncFromServer playerColorId 0
-      spd <- syncFromServer playerSpeedId 0 -- to test rejecting: return $ pure 700
+      spd <- fmap (if cheating then (*2) else id) <$> syncFromServer playerSpeedId 0
       pos <- syncPosition spd
       siz <- syncFromServer playerSizeId  0
       return $ Player
