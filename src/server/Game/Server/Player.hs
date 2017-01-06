@@ -108,6 +108,7 @@ player colorRoller i peer = do
       , playerColor  = c
       , playerSpeed  = 50
       , playerSize   = 5
+      , playerScore  = 0
       , playerCustom = ServerPlayerExt {
           playerPeer = peer
         }
@@ -124,6 +125,7 @@ player colorRoller i peer = do
       _ <- syncToClients allPeers playerColorId ReliableMessage $ playerColor <$> pdyn
       _ <- syncToClients allPeers playerSpeedId ReliableMessage $ playerSpeed <$> pdyn
       _ <- syncToClients allPeers playerSizeId  ReliableMessage $ playerSize <$> pdyn
+      _ <- syncToClients allPeers playerScoreId ReliableMessage $ playerScore <$> pdyn
       return $ do
         pos <- posDyn
         p <- pdyn

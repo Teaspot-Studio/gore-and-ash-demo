@@ -41,4 +41,4 @@ playGame w cheating = do
 
 -- | Get info about globals from server
 receiveGlobals :: AppFrame t => AppMonad t (Dynamic t GameGlobal)
-receiveGlobals = syncFromServer globalId $ GameGlobal mempty
+receiveGlobals = syncFromServer globalId GameGlobal

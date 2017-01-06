@@ -7,6 +7,7 @@ module Game.Player(
   , playerColorId
   , playerSpeedId
   , playerSizeId
+  , playerScoreId
   , PlayerCommand(..)
   , printPlayer
   ) where
@@ -37,6 +38,8 @@ data Player s = Player {
 , playerSpeed  :: !Double
 -- | Player size
 , playerSize   :: !Double
+-- | Player game score
+, playerScore  :: !Int
 -- | Player other information
 , playerCustom :: !s
 } deriving (Generic)
@@ -48,12 +51,13 @@ instance Functor Player where
 playerCollectionId :: SyncItemId
 playerCollectionId = 1
 
-playerPosId, playerColorId, playerSpeedId, playerSizeId, playerCommandId :: SyncItemId
+playerPosId, playerColorId, playerSpeedId, playerSizeId, playerCommandId, playerScoreId :: SyncItemId
 playerPosId     = 1
 playerColorId   = 2
 playerSpeedId   = 3
 playerSizeId    = 4
 playerCommandId = 5
+playerScoreId   = 6
 
 -- | Commands to client side
 data PlayerCommand =

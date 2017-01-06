@@ -11,15 +11,21 @@ import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
 import Network.Socket
 import Options.Applicative as OA
+import SDL.TTF.FFI (TTFFont)
+
+import qualified SDL.TTF as TTF
 
 import Game
 import Graphics
+
+import Paths_gore_and_ash_demo
 
 -- | CLI options of client
 data Options = Options {
   optionHostName :: !HostName    -- ^ Host address of server
 , optionService  :: !ServiceName -- ^ Port of server
 , optionCheating :: !Bool        -- ^ Simulate hacked client
+, optionFont     :: !(Maybe FilePath)    -- ^ Path to font file
 }
 
 -- | Parser of CLI options
@@ -39,6 +45,19 @@ optionsParser = Options
        long "cheating"
     <> help "simulate hacked client to test rejecting server behavior"
     )
+  <*> optional (strOption $
+       long "font"
+    <> metavar "TTF_FILE_PATH"
+    <> help "font to use to render text"
+    )
+
+-- | Load font either from built in or from specified file
+loadFont :: MonadIO m => Maybe FilePath -> m TTFFont
+loadFont mfile = liftIO $ do
+  filename <- case mfile of
+    Nothing -> getDataFileName "media/AnonymousPro-Regular.ttf"
+    Just n -> return n
+  TTF.openFont filename 40
 
 -- | Find server address by host name or IP
 resolveServer :: MonadIO m => HostName -> ServiceName -> m SockAddr
@@ -50,7 +69,7 @@ resolveServer host serv = do
 
 -- | Execute client with given options
 client :: Options -> IO ()
-client Options{..} = do
+client Options{..} = TTF.withInit $ do
   runSpiderHost $ hostApp $ runModule opts clientGame
   where
     opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncSlave
@@ -75,8 +94,9 @@ client Options{..} = do
 
     playPhase :: AppMonad Spider ()
     playPhase = do
+      font <- loadFont optionFont
       rec
-        w <- createMainWindow (const () <$> redrawE) (drawFrame gameDyn) defaultWindowCfg
+        w <- createMainWindow (const () <$> redrawE) (drawFrame gameDyn font) defaultWindowCfg
         gameDyn <- playGame w optionCheating
         redrawE <- alignWithFps 60 $ updated gameDyn
       return ()

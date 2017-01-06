@@ -15,6 +15,7 @@ extra-deps:
 - gore-and-ash-network-2.0.0.0
 - gore-and-ash-sync-2.0.0.0
 - gore-and-ash-sdl-3.0.0.0
+- sdl2-ttf-1.0.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}

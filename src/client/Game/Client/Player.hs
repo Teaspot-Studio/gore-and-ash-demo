@@ -89,6 +89,7 @@ initialPlayer = Player {
   , playerColor  = V3 1 0 0
   , playerSpeed  = 0
   , playerSize   = 0
+  , playerScore  = 0
   , playerCustom = ()
   }
 
@@ -106,16 +107,17 @@ localPlayer w i cheating = do
   where
     syncPlayer :: AppMonad t (Dynamic t LocalPlayer)
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
-      logMsgLnM LogInfo . showl =<< syncCurrentName
       col <- syncFromServer playerColorId 0
       spd <- fmap (if cheating then (*2) else id) <$> syncFromServer playerSpeedId 0
       pos <- syncPosition spd
       siz <- syncFromServer playerSizeId  0
+      score <- syncFromServer playerScoreId 0
       return $ Player
         <$> pos
         <*> col
         <*> spd
         <*> siz
+        <*> score
         <*> pure ()
 
     -- | Generate events when user wants to move player
@@ -151,7 +153,6 @@ localPlayer w i cheating = do
     syncPosition :: Dynamic t Double -> AppMonad t (Dynamic t (V2 Double))
     syncPosition spdDyn = do
       moveE <- movePlayer spdDyn
-      logMsgLnM LogInfo . showl =<< syncCurrentName
       rec
         serverE <- syncToServer playerPosId ReliableMessage positionDyn
         let rejectE = serverRejected serverE
@@ -178,9 +179,11 @@ player localId i _ = if i == localId then return $ pure initialPlayer
       col <- syncFromServer playerColorId 0
       spd <- syncFromServer playerSpeedId 0
       siz <- syncFromServer playerSizeId  0
+      score <- syncFromServer playerScoreId  0
       return $ Player
         <$> pos
         <*> col
         <*> spd
         <*> siz
+        <*> score
         <*> pure ()
