@@ -61,8 +61,9 @@ playerScoreId   = 6
 
 -- | Commands to client side
 data PlayerCommand =
-    RequestPlayerId       -- ^ Ask server for player id
-  | YourPlayerId PlayerId -- ^ Inform about client player id
+    RequestPlayerId         -- ^ Ask server for player id
+  | YourPlayerId PlayerId   -- ^ Inform about client player id
+  | PlayerShoot (V2 Double) -- ^ Request spawning of bullet in given direction
   deriving (Generic)
 
 instance Store PlayerCommand

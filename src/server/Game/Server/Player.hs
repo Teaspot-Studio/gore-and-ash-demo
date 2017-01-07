@@ -3,6 +3,7 @@ module Game.Server.Player(
   , playersCollection
   , ServerPlayer
   , ServerPlayerExt(..)
+  , PlayerShoots
   ) where
 
 import Control.Monad
@@ -23,14 +24,18 @@ import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Network
 import Game.GoreAndAsh.Sync
 
+import Game.Bullet
 import Game.Monad
 import Game.Player
 
 -- | Contains mappings between player ids, peers and player payload
 type PlayerMapping = (Map PlayerId ServerPlayer, Map Peer PlayerId)
 
+-- | Requests from players to create bullets
+type PlayerShoots t = Event t (Map PlayerId CreateBullet)
+
 -- | Shared players collection
-playersCollection :: forall t . AppFrame t => AppMonad t (Dynamic t PlayerMapping)
+playersCollection :: forall t . AppFrame t => AppMonad t (Dynamic t PlayerMapping, PlayerShoots t)
 playersCollection = do
   -- we need a player counter to generate ids
   playerCounterRef <- newExternalRef (0 :: Int)
@@ -64,7 +69,9 @@ playersCollection = do
             return $ M.insert (PlayerId i) (Just connPeer) delMap
     -- collection primitive, note recursive dependency
     colorRoller <- makeColorRoller
-    playersMapDyn <- joinDynThroughMap <$> hostSimpleCollection playerCollectionId mempty updE (player colorRoller)
+    collReses <- hostSimpleCollection playerCollectionId mempty updE (player colorRoller)
+    let playersMapDyn = joinDynThroughMap $ fmap fst <$> collReses
+        shootsEvents  = switchPromptlyDyn $ mergeMap . fmap snd <$> collReses
     -- post processing to get peer-id map
     let playersMappingDyn :: Dynamic t PlayerMapping
         playersMappingDyn = do
@@ -73,7 +80,7 @@ playersCollection = do
               peersMap = M.fromList . fmap (\(i, p) -> (p, i)) $ elems
           return (playersMap, peersMap)
 
-  return playersMappingDyn
+  return (playersMappingDyn, shootsEvents)
 
 -- | Extension of shared player with server private data
 type ServerPlayer = Player ServerPlayerExt
@@ -88,7 +95,8 @@ player :: forall t . AppFrame t
   => ItemRoller t (V3 Double) -- ^ Roller of colors
   -> PlayerId -- ^ Player ID that is simulated
   -> Peer -- ^ Player peer
-  -> AppMonad t (Dynamic t ServerPlayer)
+  -- | Returns dynamic player and event when user requests bullet creation
+  -> AppMonad t (Dynamic t ServerPlayer, Event t CreateBullet)
 player colorRoller i peer = do
   -- Initialisation
   buildE <- getPostBuild
@@ -100,8 +108,9 @@ player colorRoller i peer = do
 
   let yourIdMsgE = ffor buildE $ const [YourPlayerId i]
   let commandsE = yourIdMsgE
-  _ <- syncCommands commandsE
-  syncPlayer playerDyn
+  shootE <- syncCommands commandsE playerDyn
+  playerDyn' <- syncPlayer playerDyn
+  return (playerDyn', shootE)
   where
     initialPlayer c = Player {
         playerPos    = initialPosition
@@ -150,15 +159,25 @@ player colorRoller i peer = do
       return posDyn
 
     -- process network messages for player
-    syncCommands commandsE = do
+    syncCommands commandsE playerDyn = do
       -- listen requests for id
       msgE <- receiveFromClient playerCommandId peer
       let respE = fforMaybe msgE $ \case
             RequestPlayerId -> Just [YourPlayerId i]
             _ -> Nothing
+          shootE = flip push msgE $ \case
+            PlayerShoot v -> do
+              Player{..} <- sample . current $ playerDyn
+              let dpos = (realToFrac $ playerSize * 1.5) * normalize v
+              return $ Just CreateBullet {
+                  createBulletPos = playerPos + dpos
+                , createBulletDir = v
+                , createBulletPlayer = i
+                }
+            _ -> return Nothing
       -- send commands/responses to peer
       _ <- sendToClientMany playerCommandId ReliableMessage (commandsE <> respE) peer
-      return ()
+      return shootE
 
 -- | Create item roller for player colors
 makeColorRoller :: AppFrame t => AppMonad t (ItemRoller t (V3 Double))

@@ -10,7 +10,6 @@ import Game.GoreAndAsh
 import Game.Bullet
 import Game.Global
 import Game.Monad
-import Game.Player
 import Game.Server.Bullet
 import Game.Server.Player
 
@@ -24,9 +23,9 @@ data Game = Game {
 -- | Server logic
 playGame :: AppFrame t => AppMonad t (Dynamic t Game)
 playGame = do
-  players <- playersCollection
+  (players, shoots) <- playersCollection
   globals <- processGameGlobals
-  bulets  <- processBullets never
+  bulets  <- processBullets shoots
   return $ Game
     <$> globals
     <*> players

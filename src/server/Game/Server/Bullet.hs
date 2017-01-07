@@ -6,10 +6,9 @@ module Game.Server.Bullet(
 import Control.Monad
 import Data.Map.Strict (Map)
 import Data.Monoid
-import Data.Store
-import GHC.Generics
 import Linear
 
+import qualified Data.Foldable as F
 import qualified Data.Map.Strict as M
 
 import Game.GoreAndAsh
@@ -19,24 +18,24 @@ import Game.GoreAndAsh.Time
 
 import Game.Bullet
 import Game.Monad
-import Game.Player
 
 -- | Specific extended of bullet for server
 type ServerBullet = Bullet ()
 
 -- | Process all bullets
-processBullets :: forall t . AppFrame t
-  => Event t CreateBullet -- ^ Fires when a new bullet need to be spawned
+processBullets :: forall t f . (AppFrame t, Foldable f)
+  => Event t (f CreateBullet) -- ^ Fires when a new bullet need to be spawned
   -> AppMonad t (Dynamic t (Map BulletId ServerBullet))
 processBullets createE = do
   -- we need a bullet counter to generate ids
   bulletCounterRef <- newExternalRef (0 :: Int)
   bulletCounter <- externalRefDynamic bulletCounterRef
   -- define creation event that increses counter for ids
-  addE <- performEvent $ ffor createE $ \ce -> do
-    i <- sample . current $ bulletCounter
-    modifyExternalRef bulletCounterRef $ \v -> (v+1, ())
-    return $ M.singleton (BulletId i) (Just ce)
+  let createBullet ce = do
+        i <- sample . current $ bulletCounter
+        modifyExternalRef bulletCounterRef $ \v -> (v+1, ())
+        return (BulletId i, Just ce)
+  addE <- performEvent $ ffor createE $ fmap M.fromList . mapM createBullet . F.toList
   -- recursive dependency as we need to delete bullets that life time is over
   rec
     let delE = fforMaybe (updated bulletMapDyn) $ \bulletMap -> let

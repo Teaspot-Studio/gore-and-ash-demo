@@ -7,13 +7,11 @@ import Data.Map.Strict (Map)
 import Game.GoreAndAsh
 import Game.GoreAndAsh.SDL
 import SDL.TTF.FFI (TTFFont)
-import Control.Monad.IO.Class
 
 import Game
 import Game.Bullet
 import Game.Camera
 import Game.Client.Player
-import Game.Global
 import Game.Monad
 import Game.Player
 import Graphics.Bullet
@@ -71,8 +69,8 @@ drawScore :: forall t . AppFrame t
   -> TTFFont -- ^ Font to use to render text with
   -> Map PlayerId ClientPlayer -- ^ Players collection
   -> HostFrame t ()
-drawScore w r font players = unless (null players) $ do
-  _ <- F.foldlM drawLine 5 msgs
+drawScore _ r font players = unless (null players) $ do
+  _ <- F.foldlM drawTextLine 5 msgs
   return ()
   where
     msgs = M.elems . M.mapWithKey mkLine $ playerScore <$> players
@@ -82,7 +80,7 @@ drawScore w r font players = unless (null players) $ do
     xoffset = 20
     yoffset = 50
 
-    drawLine y msg = do
+    drawTextLine y msg = do
       surf <- TTF.renderUTF8Solid font msg color
       size <- surfaceDimensions surf
       tex <- createTextureFromSurface r surf
