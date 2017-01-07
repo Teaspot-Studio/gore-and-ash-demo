@@ -26,6 +26,7 @@ executable gore-and-ash-demo-client
   default-language:    Haskell2010
   other-modules:
     Game
+    Game.Bullet
     Game.Camera
     Game.Client.Player
     Game.Global
@@ -33,8 +34,8 @@ executable gore-and-ash-demo-client
     Game.Player
     Graphics
     Graphics.Square
-    Store
     Paths_gore_and_ash_demo
+    Store
 
   build-depends:
       base                              >= 4.7      && < 5
@@ -91,9 +92,11 @@ executable gore-and-ash-demo-server
 
   other-modules:
     Game
+    Game.Bullet
     Game.Global
     Game.Monad
     Game.Player
+    Game.Server.Bullet
     Game.Server.Player
     Store
 
