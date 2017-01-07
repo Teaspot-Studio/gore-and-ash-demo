@@ -3,6 +3,7 @@ module Game.Server.Bullet(
   , ServerBullet
   ) where
 
+import Control.Monad
 import Data.Map.Strict (Map)
 import Data.Monoid
 import Data.Store
@@ -12,7 +13,9 @@ import Linear
 import qualified Data.Map.Strict as M
 
 import Game.GoreAndAsh
+import Game.GoreAndAsh.Network
 import Game.GoreAndAsh.Sync
+import Game.GoreAndAsh.Time
 
 import Game.Bullet
 import Game.Monad
@@ -51,7 +54,8 @@ bullet :: forall t . AppFrame t
   => BulletId     -- ^ ID of created bullet
   -> CreateBullet -- ^ Creation info for bullet
   -> AppMonad t (Dynamic t ServerBullet)
-bullet _ CreateBullet{..} = return $ pure initBullet
+bullet i CreateBullet{..} = do
+  syncBullet $ pure initBullet
   where
     bulletSpd = 10
     initBullet = Bullet {
@@ -61,3 +65,13 @@ bullet _ CreateBullet{..} = return $ pure initBullet
       , bulletLifeTime = 5
       , bulletCustom = ()
       }
+
+    syncBullet bdyn = fmap join $ syncWithName (show i) bdyn $ do
+      allPeers <- networkPeers
+      let posSyncDt = 2 :: Double
+      posSyncE <- tickEvery $ realToFrac posSyncDt
+      curPos <- sample . current $ bulletPos <$> bdyn
+      syncPosDyn <- holdDyn curPos $ tag (current $ bulletPos <$> bdyn) posSyncE
+      _ <- syncToClients allPeers bulletPosId ReliableMessage syncPosDyn
+      _ <- syncToClients allPeers bulletVelId UnreliableMessage $ bulletVel <$> bdyn
+      return bdyn
