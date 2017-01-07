@@ -32,7 +32,7 @@ type RemotePlayers = Map PlayerId RemotePlayer
 type RemotePlayer = ClientPlayer
 
 -- | Local player that is controlled by local user
-type LocalPlayer = ClientPlayer
+type LocalPlayer = Player PlayerId
 
 -- | Sync players states from server
 handlePlayers :: forall t . AppFrame t => WindowWidget t -- ^ Window for player inputs
@@ -44,7 +44,7 @@ handlePlayers w cheating = do
     phase1Unified :: AppMonad t (Event t PlayerId, Dynamic t (LocalPlayer, RemotePlayers))
     phase1Unified = do
       e <- phase1
-      return (e, pure (initialPlayer, mempty))
+      return (e, pure (initialPlayer { playerCustom = PlayerId 0 }, mempty))
 
     phase2Unified :: PlayerId -> AppMonad t (Event t PlayerId, Dynamic t (LocalPlayer, RemotePlayers))
     phase2Unified localId = do
@@ -103,9 +103,9 @@ localPlayer w i cheating = do
   logInfoE $ ffor buildE $ const $ "Local player " <> showl i <> " is created!"
   p <- syncPlayer
   -- printPlayer i p
-  return p
+  return $ fmap (const $ PlayerId 0) <$> p
   where
-    syncPlayer :: AppMonad t (Dynamic t LocalPlayer)
+    syncPlayer :: AppMonad t (Dynamic t ClientPlayer)
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
       col <- syncFromServer playerColorId 0
       spd <- fmap (if cheating then (*2) else id) <$> syncFromServer playerSpeedId 0

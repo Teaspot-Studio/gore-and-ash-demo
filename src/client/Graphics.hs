@@ -17,6 +17,7 @@ import Game.Monad
 import Game.Player
 import Graphics.Square
 
+import qualified Data.Foldable as F
 import qualified Data.Map.Strict as M
 import qualified SDL.Raw as SDL
 import qualified SDL.TTF as TTF
@@ -33,24 +34,28 @@ drawFrame gameDyn font w r = do
   Game{..} <- sample . current $ gameDyn
   drawPlayer w r gameCamera gameLocalPlayer
   drawPlayers w r gameCamera gamePlayers
-  drawScore w r font gamePlayers
-  --updateWindowSurface w
+  let allPlayers = M.insert
+        (playerCustom gameLocalPlayer)
+        (fmap (const ()) gameLocalPlayer)
+        gamePlayers
+  drawScore w r font allPlayers
+  glSwapWindow w
 
 -- | Draw players
-drawPlayers :: forall t . AppFrame t
+drawPlayers :: forall t s . AppFrame t
   => Window -- ^ Window where to draw
   -> Renderer -- ^ Renderer to use
   -> Camera -- ^ User camera (defines transformation of canvas)
-  -> Map PlayerId ClientPlayer -- ^ Players collection
+  -> Map PlayerId (Player s) -- ^ Players collection
   -> HostFrame t ()
 drawPlayers w r cam = mapM_ (drawPlayer w r cam)
 
 -- | Draw single player
-drawPlayer :: forall t . AppFrame t
+drawPlayer :: forall t s . AppFrame t
   => Window -- ^ Window where to draw
   -> Renderer -- ^ Renderer to use
   -> Camera -- ^ User camera (defines transformation of canvas)
-  -> ClientPlayer -- ^ Player to render
+  -> Player s -- ^ Player to render
   -> HostFrame t ()
 drawPlayer w r cam Player{..} = do
   renderSquare w r cam playerSize playerPos playerColor
@@ -62,12 +67,23 @@ drawScore :: forall t . AppFrame t
   -> TTFFont -- ^ Font to use to render text with
   -> Map PlayerId ClientPlayer -- ^ Players collection
   -> HostFrame t ()
-drawScore w _ font players = unless (null players) $ do
-  winSurf <- getWindowSurface w
-  surf <- TTF.renderUTF8Solid font msg $ SDL.Color 0 0 0 0
-  surfaceBlit surf Nothing winSurf Nothing
-  freeSurface surf
+drawScore w r font players = unless (null players) $ do
+  _ <- F.foldlM drawLine 5 msgs
+  return ()
   where
-    msg = unlines . M.elems . M.mapWithKey mkLine $ playerScore <$> players
+    msgs = M.elems . M.mapWithKey mkLine $ playerScore <$> players
     mkLine i n = "Player " ++ show (unPlayerId i) ++ ": " ++ show n
+
+    color = SDL.Color 0 0 0 0
+    xoffset = 20
+    yoffset = 50
+
+    drawLine y msg = do
+      surf <- TTF.renderUTF8Solid font msg color
+      size <- surfaceDimensions surf
+      tex <- createTextureFromSurface r surf
+      copy r tex Nothing (Just $ Rectangle (P $ V2 xoffset y) size)
+      destroyTexture tex
+      freeSurface surf
+      return $ y + yoffset
 
