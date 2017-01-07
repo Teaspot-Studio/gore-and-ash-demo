@@ -18,15 +18,6 @@ import Game.Bullet
 import Game.Monad
 import Game.Player
 
--- | Info required to create new bullet
-data CreateBullet = CreateBullet {
-  createBulletPos    :: !(V2 Double) -- ^ Bullet spawn position
-, createBulletDir    :: !(V2 Double) -- ^ Bullet flight direction
-, createBulletPlayer :: !PlayerId    -- ^ Bullet owner
-} deriving (Generic, Show)
-
-instance Store CreateBullet
-
 -- | Specific extended of bullet for server
 type ServerBullet = Bullet ()
 

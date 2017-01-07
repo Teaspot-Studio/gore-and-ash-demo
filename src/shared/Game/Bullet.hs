@@ -1,6 +1,7 @@
 module Game.Bullet(
     Bullet(..)
   , BulletId(..)
+  , CreateBullet(..)
   , bulletCollectionId
   , bulletVelId
   , bulletPosId
@@ -32,6 +33,15 @@ newtype BulletId = BulletId { unBulletId :: Int }
   deriving (Generic, Show, Eq, Ord)
 
 instance Store BulletId
+
+-- | Info required to create new bullet
+data CreateBullet = CreateBullet {
+  createBulletPos    :: !(V2 Double) -- ^ Bullet spawn position
+, createBulletDir    :: !(V2 Double) -- ^ Bullet flight direction
+, createBulletPlayer :: !PlayerId    -- ^ Bullet owner
+} deriving (Generic, Show)
+
+instance Store CreateBullet
 
 -- | Unique collection id for bullets
 bulletCollectionId :: SyncItemId

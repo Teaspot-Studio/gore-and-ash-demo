@@ -28,11 +28,13 @@ executable gore-and-ash-demo-client
     Game
     Game.Bullet
     Game.Camera
+    Game.Client.Bullet
     Game.Client.Player
     Game.Global
     Game.Monad
     Game.Player
     Graphics
+    Graphics.Bullet
     Graphics.Square
     Paths_gore_and_ash_demo
     Store

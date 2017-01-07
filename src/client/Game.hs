@@ -4,7 +4,11 @@ module Game(
   , Game(..)
   ) where
 
+import Data.Map.Strict (Map)
+
+import Game.Bullet
 import Game.Camera
+import Game.Client.Bullet
 import Game.Client.Player
 import Game.Global
 import Game.Monad
@@ -21,6 +25,8 @@ data Game = Game {
 , gameLocalPlayer :: LocalPlayer
   -- | Other players that are controlled by other users
 , gamePlayers     :: RemotePlayers
+  -- | Known bullet map
+, gameBullets     :: Map BulletId ClientBullet
   -- | Local player camera
 , gameCamera      :: Camera
 }
@@ -32,11 +38,13 @@ playGame :: AppFrame t => WindowWidget t -- ^ Window where to draw game
 playGame w cheating = do
   globals     <- receiveGlobals
   playersInfo <- handlePlayers w cheating
+  bullets     <- handleBullets
   cam         <- camera w
   return $ Game
     <$> globals
     <*> fmap fst playersInfo
     <*> fmap snd playersInfo
+    <*> bullets
     <*> cam
 
 -- | Get info about globals from server

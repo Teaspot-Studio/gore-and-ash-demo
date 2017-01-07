@@ -10,11 +10,13 @@ import SDL.TTF.FFI (TTFFont)
 import Control.Monad.IO.Class
 
 import Game
+import Game.Bullet
 import Game.Camera
 import Game.Client.Player
 import Game.Global
 import Game.Monad
 import Game.Player
+import Graphics.Bullet
 import Graphics.Square
 
 import qualified Data.Foldable as F
@@ -33,22 +35,14 @@ drawFrame gameDyn font w r = do
   clear r
   Game{..} <- sample . current $ gameDyn
   drawPlayer w r gameCamera gameLocalPlayer
-  drawPlayers w r gameCamera gamePlayers
+  mapM_ (drawPlayer w r gameCamera) gamePlayers
+  mapM_ (drawBullet w r gameCamera) gameBullets
   let allPlayers = M.insert
         (playerCustom gameLocalPlayer)
         (fmap (const ()) gameLocalPlayer)
         gamePlayers
   drawScore w r font allPlayers
   glSwapWindow w
-
--- | Draw players
-drawPlayers :: forall t s . AppFrame t
-  => Window -- ^ Window where to draw
-  -> Renderer -- ^ Renderer to use
-  -> Camera -- ^ User camera (defines transformation of canvas)
-  -> Map PlayerId (Player s) -- ^ Players collection
-  -> HostFrame t ()
-drawPlayers w r cam = mapM_ (drawPlayer w r cam)
 
 -- | Draw single player
 drawPlayer :: forall t s . AppFrame t
@@ -59,6 +53,16 @@ drawPlayer :: forall t s . AppFrame t
   -> HostFrame t ()
 drawPlayer w r cam Player{..} = do
   renderSquare w r cam playerSize playerPos playerColor
+
+-- | Draw single bullet
+drawBullet :: forall t s . AppFrame t
+  => Window -- ^ Window where to draw
+  -> Renderer -- ^ Renderer to use
+  -> Camera -- ^ User camera (defines transformation of canvas)
+  -> Bullet s -- ^ Bullet to render
+  -> HostFrame t ()
+drawBullet w r cam Bullet{..} = do
+  renderBullet w r bulletPos bulletVel cam
 
 -- | Draw global info about game (score)
 drawScore :: forall t . AppFrame t
