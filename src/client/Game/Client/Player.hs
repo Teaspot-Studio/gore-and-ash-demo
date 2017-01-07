@@ -103,7 +103,7 @@ localPlayer w i cheating = do
   logInfoE $ ffor buildE $ const $ "Local player " <> showl i <> " is created!"
   p <- syncPlayer
   -- printPlayer i p
-  return $ fmap (const $ PlayerId 0) <$> p
+  return $ fmap (const i) <$> p
   where
     syncPlayer :: AppMonad t (Dynamic t ClientPlayer)
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
