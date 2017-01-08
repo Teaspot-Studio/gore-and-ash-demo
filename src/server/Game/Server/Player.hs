@@ -140,7 +140,7 @@ player colorRoller hitE i peer = do
       allPeers <- networkPeers
       let otherPeers = S.delete peer <$> allPeers
       posDyn <- syncPosition $ playerSpeed <$> pdyn
-      _ <- syncToClients otherPeers playerPosId UnreliableMessage posDyn
+      _ <- syncToClients otherPeers playerPosId ReliableMessage posDyn
       _ <- syncToClients allPeers playerColorId ReliableMessage $ playerColor <$> pdyn
       _ <- syncToClients allPeers playerSpeedId ReliableMessage $ playerSpeed <$> pdyn
       _ <- syncToClients allPeers playerSizeId  ReliableMessage $ playerSize <$> pdyn

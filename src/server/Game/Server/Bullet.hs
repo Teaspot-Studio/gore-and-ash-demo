@@ -97,16 +97,18 @@ bullet pmapDyn i CreateBullet{..} = do
         <*> pure bulletCustom
 
     bulletHit :: Dynamic t ServerBullet -> Event t PlayerId
-    bulletHit bDyn = flip push (updated posDyn) $ \pos -> do
+    bulletHit bDyn = flip push (updated bProjectDyn) $ \(pos, bpid) -> do
       pmap <- sample . current $ pmapDyn
-      return $ M.foldrWithKey' (checkPlayer pos) Nothing pmap
+      return $ M.foldrWithKey' (checkPlayer pos bpid) Nothing pmap
       where
-        posDyn = bulletPos <$> bDyn
-        checkPlayer _ _ _ (Just a) = Just a
-        checkPlayer pos pid p Nothing = let
+        bProjectDyn = (,)
+          <$> (bulletPos <$> bDyn)
+          <*> (bulletPlayer <$> bDyn)
+        checkPlayer _ _ _ _ (Just a) = Just a
+        checkPlayer pos bpid pid p Nothing = let
             dv = playerPos p - pos
             s = playerSize p * 0.5
-          in if abs (dv ^. _x) < s && abs (dv ^. _y) < s
+          in if abs (dv ^. _x) < s && abs (dv ^. _y) < s && pid /= bpid
             then (Just pid)
             else Nothing
 
