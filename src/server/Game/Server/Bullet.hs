@@ -54,11 +54,10 @@ bullet :: forall t . AppFrame t
   -> CreateBullet -- ^ Creation info for bullet
   -> AppMonad t (Dynamic t ServerBullet)
 bullet i CreateBullet{..} = do
-  syncBullet $ pure initBullet
+  syncBullet =<< simulateBullet initBullet
   where
-    bulletSpd = 10
     initBullet = Bullet {
-        bulletVel = bulletSpd * normalize createBulletDir
+        bulletVel = V2 createBulletVel createBulletVel * normalize createBulletDir
       , bulletPos = createBulletPos
       , bulletPlayer = createBulletPlayer
       , bulletLifeTime = 5
@@ -67,10 +66,22 @@ bullet i CreateBullet{..} = do
 
     syncBullet bdyn = fmap join $ syncWithName (show i) bdyn $ do
       allPeers <- networkPeers
-      let posSyncDt = 2 :: Double
+      let posSyncDt = 0.5  :: Double
       posSyncE <- tickEvery $ realToFrac posSyncDt
-      curPos <- sample . current $ bulletPos <$> bdyn
-      syncPosDyn <- holdDyn curPos $ tag (current $ bulletPos <$> bdyn) posSyncE
-      _ <- syncToClients allPeers bulletPosId ReliableMessage syncPosDyn
+      _ <- syncToClientsManual allPeers bulletPosId ReliableMessage (bulletPos <$> bdyn) posSyncE
       _ <- syncToClients allPeers bulletVelId UnreliableMessage $ bulletVel <$> bdyn
       return bdyn
+
+    simulateBullet Bullet{..} = do
+      let bulletSymDt = 0.01 :: Double
+          dtV = V2 bulletSymDt bulletSymDt
+      tickE <- tickEvery $ realToFrac bulletSymDt
+      posDyn <- foldDyn (const $ \p -> p + dtV * bulletVel) bulletPos tickE
+      lifeDyn <- foldDyn (const $ \t -> t - bulletSymDt) bulletLifeTime tickE
+      return $ Bullet
+        <$> pure bulletVel
+        <*> posDyn
+        <*> pure bulletPlayer
+        <*> lifeDyn
+        <*> pure bulletCustom
+

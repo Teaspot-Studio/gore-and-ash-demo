@@ -19,6 +19,7 @@ import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
 
+import Game.Camera
 import Game.Monad
 import Game.Player
 
@@ -35,10 +36,12 @@ type RemotePlayer = ClientPlayer
 type LocalPlayer = Player PlayerId
 
 -- | Sync players states from server
-handlePlayers :: forall t . AppFrame t => WindowWidget t -- ^ Window for player inputs
+handlePlayers :: forall t . AppFrame t
+  => WindowWidget t -- ^ Window for player inputs
+  -> Dynamic t Camera -- ^ Camera for detecting world position of clicks
   -> Bool -- ^ Cheating flag, simulate hacked client
   -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
-handlePlayers w cheating = do
+handlePlayers w camDyn cheating = do
   -- unify phases that they have equal result types
   let
     phase1Unified :: AppMonad t (Event t PlayerId, Dynamic t (LocalPlayer, RemotePlayers))
@@ -76,7 +79,7 @@ handlePlayers w cheating = do
     -- Now when we have local player id, we can load remote players
     phase2 :: PlayerId -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
     phase2 localId = do
-      lplayer <- localPlayer w localId cheating
+      lplayer <- localPlayer w camDyn localId cheating
       remotePlayers <- joinDynThroughMap <$> remoteCollection playerCollectionId (player localId)
       return $ (,)
         <$> lplayer
@@ -94,15 +97,19 @@ initialPlayer = Player {
   }
 
 -- | Client side controller for personal player
-localPlayer :: forall t . AppFrame t => WindowWidget t -- ^ Window the player inputs are came from
+localPlayer :: forall t . AppFrame t
+  => WindowWidget t -- ^ Window the player inputs are came from
+  -> Dynamic t Camera -- ^ Camera for detecting world positions
   -> PlayerId -- ^ ID of local player
   -> Bool -- ^ Cheating flag, simulate hacked client
   -> AppMonad t (Dynamic t LocalPlayer)
-localPlayer w i cheating = do
+localPlayer w camDyn i cheating = do
   buildE <- getPostBuild
   logInfoE $ ffor buildE $ const $ "Local player " <> showl i <> " is created!"
   p <- syncPlayer
   -- printPlayer i p
+  let shootE = shoot p
+  processCommands shootE
   return $ fmap (const i) <$> p
   where
     syncPlayer :: AppMonad t (Dynamic t ClientPlayer)
@@ -158,7 +165,20 @@ localPlayer w i cheating = do
         let rejectE = serverRejected serverE
             userE = attachWith (+) (current positionDyn) moveE
         positionDyn <- holdDyn 0 $ leftmost [rejectE, userE]
-      return positionDyn
+      return $ positionDyn
+
+    shoot :: Dynamic t ClientPlayer -> Event t (V2 Double)
+    shoot pDyn = switchPromptlyDyn $ do
+      let clickE = mouseClick w ButtonLeft
+      p <- pDyn
+      cam <- camDyn
+      return $ ffor clickE $ \wp -> normalize $ cameraToWorld cam wp - playerPos p
+
+    -- Send commands to server
+    processCommands :: Event t (V2 Double) -> AppMonad t ()
+    processCommands shootE = do
+      _ <- sendToServer playerCommandId ReliableMessage $ PlayerShoot <$> shootE
+      return ()
 
 -- | Client side controller for player
 player :: forall t . AppFrame t => PlayerId -- ^ Local id that indicates that controller should do nothing

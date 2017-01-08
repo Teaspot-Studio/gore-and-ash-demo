@@ -38,6 +38,7 @@ instance Store BulletId
 data CreateBullet = CreateBullet {
   createBulletPos    :: !(V2 Double) -- ^ Bullet spawn position
 , createBulletDir    :: !(V2 Double) -- ^ Bullet flight direction
+, createBulletVel    :: !Double      -- ^ Initial bullet speed absolute value
 , createBulletPlayer :: !PlayerId    -- ^ Bullet owner
 } deriving (Generic, Show)
 

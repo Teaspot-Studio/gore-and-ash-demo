@@ -88,7 +88,7 @@ type ServerPlayer = Player ServerPlayerExt
 -- | Player server private data
 data ServerPlayerExt = ServerPlayerExt {
   playerPeer :: Peer
-}
+} deriving (Show)
 
 -- | Player component
 player :: forall t . AppFrame t
@@ -108,8 +108,10 @@ player colorRoller i peer = do
 
   let yourIdMsgE = ffor buildE $ const [YourPlayerId i]
   let commandsE = yourIdMsgE
-  shootE <- syncCommands commandsE playerDyn
   playerDyn' <- syncPlayer playerDyn
+  shootE <- syncCommands commandsE playerDyn'
+
+  -- printPlayer i playerDyn'
   return (playerDyn', shootE)
   where
     initialPlayer c = Player {
@@ -173,6 +175,7 @@ player colorRoller i peer = do
                   createBulletPos = playerPos + dpos
                 , createBulletDir = v
                 , createBulletPlayer = i
+                , createBulletVel = 50
                 }
             _ -> return Nothing
       -- send commands/responses to peer

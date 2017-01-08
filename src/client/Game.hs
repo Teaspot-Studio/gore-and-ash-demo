@@ -37,9 +37,9 @@ playGame :: AppFrame t => WindowWidget t -- ^ Window where to draw game
   -> AppMonad t (Dynamic t Game)
 playGame w cheating = do
   globals     <- receiveGlobals
-  playersInfo <- handlePlayers w cheating
-  bullets     <- handleBullets
   cam         <- camera w
+  playersInfo <- handlePlayers w cam cheating
+  bullets     <- handleBullets
   return $ Game
     <$> globals
     <*> fmap fst playersInfo
