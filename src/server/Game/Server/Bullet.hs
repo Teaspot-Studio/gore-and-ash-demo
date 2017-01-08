@@ -3,6 +3,7 @@ module Game.Server.Bullet(
   , ServerBullet
   ) where
 
+import Control.Lens
 import Control.Monad
 import Data.Map.Strict (Map)
 import Data.Monoid
@@ -14,19 +15,22 @@ import qualified Data.Map.Strict as M
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Network
 import Game.GoreAndAsh.Sync
+import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Time
 
 import Game.Bullet
 import Game.Monad
+import Game.Player
 
 -- | Specific extended of bullet for server
 type ServerBullet = Bullet ()
 
 -- | Process all bullets
-processBullets :: forall t f . (AppFrame t, Foldable f)
-  => Event t (f CreateBullet) -- ^ Fires when a new bullet need to be spawned
-  -> AppMonad t (Dynamic t (Map BulletId ServerBullet))
-processBullets createE = do
+processBullets :: forall t f s . (AppFrame t, Foldable f)
+  => Dynamic t (Map PlayerId (Player s)) -- ^ Current set of players
+  -> Event t (f CreateBullet) -- ^ Fires when a new bullet need to be spawned
+  -> AppMonad t (Dynamic t (Map BulletId ServerBullet), Event t (Map BulletId PlayerId))
+processBullets pmapDyn createE = do
   -- we need a bullet counter to generate ids
   bulletCounterRef <- newExternalRef (0 :: Int)
   bulletCounter <- externalRefDynamic bulletCounterRef
@@ -42,19 +46,26 @@ processBullets createE = do
             dieMap = fmap (const Nothing) $ M.filter (\Bullet{..} -> bulletLifeTime <= 0) bulletMap
           in if M.null dieMap then Nothing
             else Just dieMap
+        selfDelE = ffor shootMap $ fmap (const Nothing) -- when hit bullet dies
     -- automatic collection synchronisation
-    let updE = addE <> delE
-    bulletMapDyn <- joinDynThroughMap <$>
-      hostSimpleCollection bulletCollectionId mempty updE bullet
-  return bulletMapDyn
+    let updE = addE <> delE <> selfDelE
+    colRes <- hostSimpleCollection bulletCollectionId mempty updE (bullet pmapDyn)
+    let bulletMapDyn = joinDynThroughMap $ fmap fst <$> colRes
+        shootMap = switchPromptlyDyn $ mergeMap . fmap snd <$> colRes
+  return (bulletMapDyn, shootMap)
 
 -- | Controller of single bullet
-bullet :: forall t . AppFrame t
-  => BulletId     -- ^ ID of created bullet
+bullet :: forall t s . AppFrame t
+  => Dynamic t (Map PlayerId (Player s))
+  -> BulletId     -- ^ ID of created bullet
   -> CreateBullet -- ^ Creation info for bullet
-  -> AppMonad t (Dynamic t ServerBullet)
-bullet i CreateBullet{..} = do
-  syncBullet =<< simulateBullet initBullet
+  -- | Returns current state of bullet and event about hit of player
+  -> AppMonad t (Dynamic t ServerBullet, Event t PlayerId)
+bullet pmapDyn i CreateBullet{..} = do
+  bDyn <- syncBullet =<< simulateBullet initBullet
+  let ehit = bulletHit bDyn
+  logInfoE $ ffor ehit $ showl
+  return (bDyn, ehit)
   where
     initBullet = Bullet {
         bulletVel = V2 createBulletVel createBulletVel * normalize createBulletDir
@@ -84,4 +95,18 @@ bullet i CreateBullet{..} = do
         <*> pure bulletPlayer
         <*> lifeDyn
         <*> pure bulletCustom
+
+    bulletHit :: Dynamic t ServerBullet -> Event t PlayerId
+    bulletHit bDyn = flip push (updated posDyn) $ \pos -> do
+      pmap <- sample . current $ pmapDyn
+      return $ M.foldrWithKey' (checkPlayer pos) Nothing pmap
+      where
+        posDyn = bulletPos <$> bDyn
+        checkPlayer _ _ _ (Just a) = Just a
+        checkPlayer pos pid p Nothing = let
+            dv = playerPos p - pos
+            s = playerSize p * 0.5
+          in if abs (dv ^. _x) < s && abs (dv ^. _y) < s
+            then (Just pid)
+            else Nothing
 

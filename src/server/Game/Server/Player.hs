@@ -12,6 +12,7 @@ import Data.Align
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict (Map)
 import Data.Monoid
+import Data.Set (Set)
 import Data.These
 import Linear
 
@@ -35,8 +36,10 @@ type PlayerMapping = (Map PlayerId ServerPlayer, Map Peer PlayerId)
 type PlayerShoots t = Event t (Map PlayerId CreateBullet)
 
 -- | Shared players collection
-playersCollection :: forall t . AppFrame t => AppMonad t (Dynamic t PlayerMapping, PlayerShoots t)
-playersCollection = do
+playersCollection :: forall t . AppFrame t
+  => Event t (Set PlayerId) -- ^ Fires when a hit from bullets are occured
+  -> AppMonad t (Dynamic t PlayerMapping, PlayerShoots t)
+playersCollection hitsE = do
   -- we need a player counter to generate ids
   playerCounterRef <- newExternalRef (0 :: Int)
   playerCounter <- externalRefDynamic playerCounterRef
@@ -69,7 +72,8 @@ playersCollection = do
             return $ M.insert (PlayerId i) (Just connPeer) delMap
     -- collection primitive, note recursive dependency
     colorRoller <- makeColorRoller
-    collReses <- hostSimpleCollection playerCollectionId mempty updE (player colorRoller)
+    let playerWrapper i = player colorRoller (mkHitE i) i
+    collReses <- hostSimpleCollection playerCollectionId mempty updE playerWrapper
     let playersMapDyn = joinDynThroughMap $ fmap fst <$> collReses
         shootsEvents  = switchPromptlyDyn $ mergeMap . fmap snd <$> collReses
     -- post processing to get peer-id map
@@ -81,6 +85,9 @@ playersCollection = do
           return (playersMap, peersMap)
 
   return (playersMappingDyn, shootsEvents)
+  where
+    -- Construct event that particular player is hit by a bullet
+    mkHitE i = fforMaybe hitsE $ \s -> if S.member i s then Just () else Nothing
 
 -- | Extension of shared player with server private data
 type ServerPlayer = Player ServerPlayerExt
@@ -93,11 +100,12 @@ data ServerPlayerExt = ServerPlayerExt {
 -- | Player component
 player :: forall t . AppFrame t
   => ItemRoller t (V3 Double) -- ^ Roller of colors
+  -> Event t () -- ^ Hit event from bullet
   -> PlayerId -- ^ Player ID that is simulated
   -> Peer -- ^ Player peer
   -- | Returns dynamic player and event when user requests bullet creation
   -> AppMonad t (Dynamic t ServerPlayer, Event t CreateBullet)
-player colorRoller i peer = do
+player colorRoller hitE i peer = do
   -- Initialisation
   buildE <- getPostBuild
   logInfoE $ ffor buildE $ const $ "Player " <> showl i <> " is spawned!"
@@ -149,7 +157,7 @@ player colorRoller i peer = do
           epsylon = 0.1 :: Double -- ^ Accuracy of checking
       rec
         oldPosDyn <- lookPast (realToFrac dt) initialPosition rejectE posDyn
-        let rejectE = flip push (updated oldPosDyn) $ \oldPos -> do
+        let posRejectE = flip push (updated oldPosDyn) $ \oldPos -> do
               pos <- sample . current $ posDyn
               spd <- sample . current $ spdDyn
               let absSpeed = norm (pos - oldPos) / dt
@@ -157,6 +165,8 @@ player colorRoller i peer = do
               return $ if absSpeed > expectedSpeed
                 then Just oldPos
                 else Nothing
+            respawnE = ffor hitE $ const initialPosition
+            rejectE = leftmost [respawnE, posRejectE]
         (posDyn, _) <- syncFromClient playerPosId (return $ pure 0) rejectE peer
       return posDyn
 
