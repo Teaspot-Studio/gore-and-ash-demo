@@ -5,10 +5,9 @@ module Game(
   ) where
 
 import Data.Map.Strict (Map)
-import Data.Set (Set)
 
 import qualified Data.Map.Strict as M
-import qualified Data.Set as S
+import qualified Data.Map.Strict.Merge as M
 
 import Game.GoreAndAsh
 
@@ -18,6 +17,7 @@ import Game.Monad
 import Game.Player
 import Game.Server.Bullet
 import Game.Server.Player
+
 
 -- | Server game state
 data Game = Game {
@@ -30,7 +30,7 @@ data Game = Game {
 playGame :: AppFrame t => AppMonad t (Dynamic t Game)
 playGame = do
   rec
-    (players, shoots) <- playersCollection $ fmap transHitMap hits
+    (players, shoots) <- playersCollection $ transHitMap bulets hits
     globals <- processGameGlobals
     (bulets, hits) <- processBullets (fmap fst players) shoots
   return $ Game
@@ -38,9 +38,16 @@ playGame = do
     <*> players
     <*> bulets
 
--- | Transform hit map for bullets to set of hit players
-transHitMap :: Map BulletId PlayerId -> Set PlayerId
-transHitMap = S.fromList . M.elems
+-- | Transform hit map for bullets to mapping from killed player to her killer
+transHitMap :: forall t . AppFrame t
+  => Dynamic t (Map BulletId ServerBullet) -- ^ Bullet mapping
+  -> Event t (Map BulletId PlayerId) -- ^ Hit mapping
+  -> Event t (Map PlayerId PlayerId) -- ^ Killed-killer mapping
+transHitMap bulletMapDyn hitMapE = M.fromList . M.elems <$> taggedEvent
+  where
+    taggedEvent :: Event t (Map BulletId (PlayerId, PlayerId))
+    taggedEvent = attachWith unionMappings (current bulletMapDyn) hitMapE
+    unionMappings = M.merge M.dropMissing M.dropMissing $ M.zipWithMatched $ \_ b pid -> (pid, bulletPlayer b)
 
 -- | Handle game globals
 processGameGlobals :: AppFrame t => AppMonad t (Dynamic t GameGlobal)

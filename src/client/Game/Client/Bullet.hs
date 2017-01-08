@@ -9,7 +9,6 @@ import Linear
 
 import Game.Bullet
 import Game.GoreAndAsh
-import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
 import Game.Monad
@@ -39,7 +38,6 @@ bullet i CreateBullet{..} = syncBullet
     syncBullet = do
       initDyn <- initialPredict
       fmap join $ syncWithNameWith (show i) (pure initDyn) $ do
-        buildE <- getPostBuild
         vel <- syncFromServer bulletVelId (bulletVel initBullet)
         pos <- predictPos vel =<< syncFromServerWith bulletPosId (bulletPos <$> initDyn)
         return $ Bullet
