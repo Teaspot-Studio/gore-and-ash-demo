@@ -5,7 +5,10 @@ module Game(
   ) where
 
 import Data.Map.Strict (Map)
+import Data.Monoid
+import Data.Sequence (Seq)
 
+import qualified Data.Foldable as F
 import qualified Data.Map.Strict as M
 import qualified Data.Map.Strict.Merge as M
 
@@ -32,11 +35,15 @@ playGame = do
   rec
     (players, shoots) <- playersCollection $ transHitMap bulets hits
     globals <- processGameGlobals
-    (bulets, hits) <- processBullets (fmap fst players) shoots
+    (bulets, hits) <- processBullets (fmap fst players) (fmap transShoots shoots)
   return $ Game
     <$> globals
     <*> players
     <*> bulets
+
+-- | Transform shoots request to flap sequence
+transShoots :: Map PlayerId (Seq CreateBullet) -> Seq CreateBullet
+transShoots = F.foldl' (<>) mempty
 
 -- | Transform hit map for bullets to mapping from killed player to her killer
 transHitMap :: forall t . AppFrame t
