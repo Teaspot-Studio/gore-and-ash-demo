@@ -11,7 +11,6 @@ import Control.Monad.IO.Class
 import Data.Align
 import Data.Map.Strict (Map)
 import Data.Monoid
-import Data.Sequence (Seq)
 import Data.These
 import Linear
 
@@ -32,7 +31,7 @@ import Game.Player
 type PlayerMapping = (Map PlayerId ServerPlayer, Map Peer PlayerId)
 
 -- | Requests from players to create bullets
-type PlayerShoots t = Event t (Map PlayerId (Seq CreateBullet))
+type PlayerShoots t = Event t (Map PlayerId CreateBullet)
 
 -- | Shared players collection
 playersCollection :: forall t . AppFrame t
@@ -107,7 +106,7 @@ player :: forall t . AppFrame t
   -> PlayerId -- ^ Player ID that is simulated
   -> Peer -- ^ Player peer
   -- | Returns dynamic player and event when user requests bullet creation
-  -> AppMonad t (Dynamic t ServerPlayer, Event t (Seq CreateBullet))
+  -> AppMonad t (Dynamic t ServerPlayer, Event t CreateBullet)
 player colorRoller hitE killsE i peer = do
   -- Initialisation
   buildE <- getPostBuild
@@ -121,10 +120,10 @@ player colorRoller hitE killsE i peer = do
   -- Process commands for client-server communication
   let yourIdMsgE = ffor buildE $ const [YourPlayerId i]
   let commandsE = yourIdMsgE
-  shootsE <- syncCommands commandsE playerDyn'
+  shootE <- syncCommands commandsE playerDyn'
   -- Print and return state and control events
   -- printPlayer i playerDyn'
-  return (playerDyn', shootsE)
+  return (playerDyn', shootE)
   where
     initialPlayer c = Player {
         playerPos    = initialPosition
@@ -193,11 +192,11 @@ player colorRoller hitE killsE i peer = do
     -- process network messages for player
     syncCommands commandsE playerDyn = do
       -- listen requests for id
-      msgsE <- receiveFromClient playerCommandId peer
-      let respE = fmapMaybe seqLeftMay $ fforSeqMaybe msgsE $ \case
+      msgE <- receiveFromClient playerCommandId peer
+      let respE = fforMaybe msgE $ \case
             RequestPlayerId -> Just [YourPlayerId i]
             _ -> Nothing
-          shootsE = pushSeq msgsE $ \case
+          shootE = flip push msgE $ \case
             PlayerShoot v -> do
               Player{..} <- sample . current $ playerDyn
               let dpos = (realToFrac $ playerSize * 1.5) * normalize v
@@ -210,7 +209,7 @@ player colorRoller hitE killsE i peer = do
             _ -> return Nothing
       -- send commands/responses to peer
       _ <- sendToClientMany playerCommandId ReliableMessage (commandsE <> respE) peer
-      return shootsE
+      return shootE
 
 -- | Create item roller for player colors
 makeColorRoller :: AppFrame t => AppMonad t (ItemRoller t (V3 Double))

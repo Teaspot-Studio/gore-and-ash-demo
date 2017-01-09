@@ -65,7 +65,7 @@ handlePlayers w camDyn cheating = do
       buildE <- getPostBuild
       -- listen to response from server
       msgE <- receiveFromServer playerCommandId
-      let localIdE = fmapMaybe seqLeftMay $ fforSeqMaybe msgE $ \case
+      let localIdE = fforMaybe msgE $ \case
             YourPlayerId i -> Just i
             _ -> Nothing
       -- send request periodically
