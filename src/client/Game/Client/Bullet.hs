@@ -56,12 +56,22 @@ bullet i CreateBullet{..} = syncBullet
         <*> pure (bulletLifeTime initBullet)
         <*> pure (bulletCustom initBullet)
 
+    -- Complex prediction of bullet position, that assumes stable movement + interpolation
+    -- of steep server rejects.
+    predictPos :: Dynamic t (V2 Double) -> Dynamic t (V2 Double) -> AppMonad t (Dynamic t (V2 Double))
     predictPos velDyn serverPos = do
       buildE <- getPostBuild
       let bulletSymDt = 0.01 :: Double
+          bulletInterpN = 5 -- steps of interpolation
+          bulletInterpDt dp = do -- time of interpolation depends on distance
+            vel <- sample . current $ velDyn
+            -- make bullet fly by 1.5 of velocity on interpolation interval
+            let s = norm dp
+            return $ if s > 20 || s < 1 then Nothing
+              else Just $ realToFrac $ s / (1.5 * norm vel)
           dtV = V2 bulletSymDt bulletSymDt
       tickE <- tickEvery $ realToFrac bulletSymDt
       let predictE = leftmost [tickE, buildE]
-      predictM serverPos predictE $ const $ \p -> do
+      predictInterpolateM bulletInterpN bulletInterpDt serverPos predictE $ const $ \p -> do
         vel <- sample . current $ velDyn
         return $ p + dtV * vel

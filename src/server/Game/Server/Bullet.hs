@@ -77,10 +77,10 @@ bullet pmapDyn i CreateBullet{..} = do
 
     syncBullet bdyn = fmap join $ syncWithName (show i) bdyn $ do
       allPeers <- networkPeers
-      let posSyncDt = 0.5  :: Double
+      let posSyncDt = 0.8  :: Double
       posSyncE <- tickEvery $ realToFrac posSyncDt
       _ <- syncToClientsManual allPeers bulletPosId ReliableMessage (bulletPos <$> bdyn) posSyncE
-      _ <- syncToClients allPeers bulletVelId UnreliableMessage $ bulletVel <$> bdyn
+      _ <- syncToClients allPeers bulletVelId ReliableMessage $ bulletVel <$> bdyn
       return bdyn
 
     simulateBullet Bullet{..} = do
