@@ -71,7 +71,7 @@ bullet pmapDyn i CreateBullet{..} = do
         bulletVel = V2 createBulletVel createBulletVel * normalize createBulletDir
       , bulletPos = createBulletPos
       , bulletPlayer = createBulletPlayer
-      , bulletLifeTime = 5
+      , bulletLifeTime = 2
       , bulletCustom = ()
       }
 

@@ -162,10 +162,10 @@ player colorRoller hitE killsE i peer = do
       posDyn <- syncPosition $ playerSpeed <$> pdyn
       -- unrelieable fast sync
       posDyn' <- alignWithFps 60 posDyn
-      _ <- syncToClients otherPeers playerPosId UnreliableMessage posDyn'
+      _ <- syncToClients otherPeers playerPosId ReliableMessage posDyn'
       -- reliable control
-      tickE <- tickEvery (realToFrac (1 :: Double))
-      _ <- syncToClientsManual otherPeers playerPosId ReliableMessage posDyn tickE
+      -- tickE <- tickEvery (realToFrac (1 :: Double))
+      -- _ <- syncToClientsManual otherPeers playerPosId ReliableMessage posDyn tickE
       -- other rare-changing fields
       _ <- syncToClients allPeers playerColorId ReliableMessage $ playerColor <$> pdyn
       _ <- syncToClients allPeers playerSpeedId ReliableMessage $ playerSpeed <$> pdyn
@@ -211,7 +211,7 @@ player colorRoller hitE killsE i peer = do
                   createBulletPos = playerPos + dpos
                 , createBulletDir = v
                 , createBulletPlayer = i
-                , createBulletVel = 50
+                , createBulletVel = 100
                 }
             _ -> return Nothing
       -- send commands/responses to peer
