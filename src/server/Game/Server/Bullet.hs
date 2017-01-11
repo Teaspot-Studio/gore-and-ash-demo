@@ -71,13 +71,13 @@ bullet pmapDyn i CreateBullet{..} = do
         bulletVel = V2 createBulletVel createBulletVel * normalize createBulletDir
       , bulletPos = createBulletPos
       , bulletPlayer = createBulletPlayer
-      , bulletLifeTime = 2
+      , bulletLifeTime = 1.5
       , bulletCustom = ()
       }
 
     syncBullet bdyn = fmap join $ syncWithName (show i) bdyn $ do
       allPeers <- networkPeers
-      let posSyncDt = 0.8  :: Double
+      let posSyncDt = 0.4  :: Double
       posSyncE <- tickEvery $ realToFrac posSyncDt
       _ <- syncToClientsManual allPeers bulletPosId ReliableMessage (bulletPos <$> bdyn) posSyncE
       _ <- syncToClients allPeers bulletVelId ReliableMessage $ bulletVel <$> bdyn

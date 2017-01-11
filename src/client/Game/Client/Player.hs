@@ -194,7 +194,7 @@ player localId i _ = if i == localId then return $ pure initialPlayer
     syncPlayer :: AppMonad t (Dynamic t ClientPlayer)
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
       let interpT = realToFrac (0.1 :: Double) -- not too fast, not too slow
-          interpSteps = 5 -- five steps are enough for smooth transition
+          interpSteps = 10 -- five steps are enough for smooth transition
       pos <- linearInterpolate interpSteps interpT =<< syncFromServer playerPosId 0
       col <- syncFromServer playerColorId 0
       spd <- syncFromServer playerSpeedId 0
