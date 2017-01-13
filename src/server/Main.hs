@@ -4,22 +4,22 @@ import Control.Lens
 import Data.Monoid
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Network
+import Game.GoreAndAsh.Network.Backend.TCP
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Logging
-import Network.Socket
 import Options.Applicative
 
 import Game
 
 -- | CLI options of server
 data Options = Options {
-  optionPort :: !PortNumber -- ^ Port of server
+  optionService :: !ServiceName -- ^ Port of server
 }
 
 -- | Parser of CLI options
 optionsParser :: Parser Options
 optionsParser = Options
-  <$> option auto (
+  <$> strOption (
        long "port"
     <> metavar "PORT_NUMBER"
     <> help "port of remote game server"
@@ -28,31 +28,34 @@ optionsParser = Options
 -- | Execute server with given options
 server :: Options -> IO ()
 server Options{..} = do
-  runSpiderHost $ hostApp $ runModule opts clientGame
+  runSpiderHost $ hostApp $ runModule opts serverGame
   where
     opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncMaster
-    netopts = (defaultNetworkOptions ()) {
-        networkDetailedLogging = False
+    tcpOpts = TCPBackendOpts {
+        tcpHostName = "localhost"
+      , tcpServiceName = optionService
+      , tcpParameters = defaultTCPParameters
+      , tcpDuplexHints = defaultConnectHints
+      }
+    netopts = (defaultNetworkOptions tcpOpts ()) {
+        networkOptsDetailedLogging = False
       }
 
-    clientGame :: AppMonad Spider ()
-    clientGame = do
+    serverGame :: AppMonad Spider ()
+    serverGame = do
       e <- getPostBuild
-      loggingSetDebugFlag True
-      listenE <- dontCare =<< (serverListen $ ffor e $ const $ ServerListen {
-          listenAddress = SockAddrInet optionPort 0
-        , listenMaxConns = 100
-        , listenChanns = 3
-        , listenIncoming = 0
-        , listenOutcoming = 0
-        })
-      logInfoE $ ffor listenE $ const $ "Started to listen port " <> showl optionPort <> " ..."
+      logInfoE $ ffor e $ const $ "Started to listen port " <> showl optionService <> " ..."
 
       connE <- peerConnected
       logInfoE $ ffor connE $ const $ "Peer is connected..."
 
       discE <- peerDisconnected
       logInfoE $ ffor discE $ const $ "Peer is disconnected..."
+
+      someErrorE <- networkSomeError
+      sendErrorE <- networkSendError
+      logWarnE $ ffor someErrorE $ \er -> "Network error: " <> showl er
+      logWarnE $ ffor sendErrorE $ \er -> "Network send error: " <> showl er
 
       _ <- playGame
       return ()

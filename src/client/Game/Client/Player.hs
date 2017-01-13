@@ -15,7 +15,7 @@ import qualified Data.Map.Strict as M
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Network
-import Game.GoreAndAsh.SDL
+import Game.GoreAndAsh.SDL hiding (delay)
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
 
@@ -80,7 +80,7 @@ handlePlayers w camDyn cheating = do
     phase2 :: PlayerId -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
     phase2 localId = do
       lplayer <- localPlayer w camDyn localId cheating
-      remotePlayers <- joinDynThroughMap <$> remoteCollection playerCollectionId (player localId)
+      remotePlayers <- joinDynThroughMap <$> remoteCollection playerCollectionId (\pid () -> player localId pid)
       return $ (,)
         <$> lplayer
         <*> (M.delete localId <$> remotePlayers)
@@ -108,7 +108,7 @@ localPlayer w camDyn i cheating = do
   logInfoE $ ffor buildE $ const $ "Local player " <> showl i <> " is created!"
   p <- syncPlayer
   -- printPlayer i p
-  let shootE = shoot p
+  shootE <- shoot p
   processCommands shootE
   return $ fmap (const i) <$> p
   where
@@ -167,12 +167,13 @@ localPlayer w camDyn i cheating = do
         positionDyn <- holdDyn 0 $ leftmost [rejectE, userE]
       return $ positionDyn
 
-    shoot :: Dynamic t ClientPlayer -> Event t (V2 Double)
-    shoot pDyn = switchPromptlyDyn $ do
-      let clickE = mouseClick w ButtonLeft
-      p <- pDyn
-      cam <- camDyn
-      return $ ffor clickE $ \wp -> normalize $ cameraToWorld cam wp - playerPos p
+    shoot :: Dynamic t ClientPlayer -> AppMonad t (Event t (V2 Double))
+    shoot pDyn = do
+      clickE <- mouseClickPress w ButtonLeft playerShootRatio
+      return $ switchPromptlyDyn $ do
+        p <- pDyn
+        cam <- camDyn
+        return $ ffor clickE $ \wp -> normalize $ cameraToWorld cam wp - playerPos p
 
     -- Send commands to server
     processCommands :: Event t (V2 Double) -> AppMonad t ()
@@ -182,8 +183,9 @@ localPlayer w camDyn i cheating = do
 
 -- | Client side controller for player
 player :: forall t . AppFrame t => PlayerId -- ^ Local id that indicates that controller should do nothing
-  -> PlayerId -> Peer -> AppMonad t (Dynamic t ClientPlayer)
-player localId i _ = if i == localId then return $ pure initialPlayer
+  -> PlayerId -- ^ ID of player the controller should create, if matches with first parameter, do nothing
+  -> AppMonad t (Dynamic t ClientPlayer)
+player localId i = if i == localId then return $ pure initialPlayer
   else do
     buildE <- getPostBuild
     logInfoE $ ffor buildE $ const $ "Player " <> showl i <> " is created!"

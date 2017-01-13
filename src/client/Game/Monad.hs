@@ -2,6 +2,7 @@
 module Game.Monad(
     AppMonad(..)
   , AppFrame
+  , AppPeer
   ) where
 
 import Control.Monad.Catch
@@ -13,15 +14,22 @@ import Data.Proxy
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Network
+import Game.GoreAndAsh.Network.Backend.TCP
 import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
+
+-- | Which network implementation to use
+type AppNetworkBackend = TCPBackend
 
 -- | Helper for concise type class contexts
 type AppFrame t = (ReflexHost t, MonadIO (HostFrame t), MonadMask (HostFrame t), MonadBaseControl IO (HostFrame t), MonadIO (HostFrame t))
 
 -- | Application monad that is used for implementation of game API
-type AppStack t = SDLT t (SyncT t (TimerT t (NetworkT t (LoggingT t (GameMonad t)))))
+type AppStack t = SDLT t (SyncT t AppNetworkBackend (TimerT t (NetworkT t AppNetworkBackend (LoggingT t (GameMonad t)))))
+
+-- | Peer connection for application monad
+type AppPeer = Peer AppNetworkBackend
 
 -- | Wrapper around 'AppStack'
 newtype AppMonad t a = AppMonad { runAppMonad :: AppStack t a}
@@ -36,17 +44,17 @@ deriving instance (ReflexHost t, MonadIO (HostFrame t)) => LoggingMonad t (AppMo
 deriving instance (ReflexHost t) => MonadSample t (AppMonad t)
 deriving instance (ReflexHost t) => MonadHold t (AppMonad t)
 deriving instance (ReflexHost t) => MonadSubscribeEvent t (AppMonad t)
-deriving instance (ReflexHost t, MonadCatch (HostFrame t), MonadBaseControl IO (HostFrame t), MonadIO (HostFrame t)) => NetworkMonad t (AppMonad t)
-deriving instance (ReflexHost t, MonadCatch (HostFrame t), MonadBaseControl IO (HostFrame t), MonadIO (HostFrame t)) => NetworkClient t (AppMonad t)
+deriving instance (ReflexHost t, MonadCatch (HostFrame t), MonadBaseControl IO (HostFrame t), MonadIO (HostFrame t)) => NetworkMonad t AppNetworkBackend (AppMonad t)
+deriving instance (ReflexHost t, MonadCatch (HostFrame t), MonadBaseControl IO (HostFrame t), MonadIO (HostFrame t)) => NetworkClient t AppNetworkBackend (AppMonad t)
 deriving instance (ReflexHost t, MonadIO (HostFrame t)) => TimerMonad t (AppMonad t)
-deriving instance (ReflexHost t, MonadMask (HostFrame t), MonadIO (HostFrame t)) => SyncMonad t (AppMonad t)
+deriving instance (ReflexHost t, MonadMask (HostFrame t), MonadIO (HostFrame t)) => SyncMonad t AppNetworkBackend (AppMonad t)
 
 instance ReflexHost t => MonadReflexCreateTrigger t (AppMonad t) where
   newEventWithTrigger = AppMonad . newEventWithTrigger
   newFanEventWithTrigger trigger = AppMonad $ newFanEventWithTrigger trigger
 
 instance (ReflexHost t, MonadIO (HostFrame t), MonadMask (HostFrame t), MonadBaseControl IO (HostFrame t)) => GameModule t (AppMonad t) where
-  type ModuleOptions t (AppMonad t) = SyncOptions (NetworkOptions ())
+  type ModuleOptions t (AppMonad t) = SyncOptions (NetworkOptions () AppNetworkBackend)
   runModule opts m = runModule opts $ runAppMonad m
   withModule t _ = withModule t (Proxy :: Proxy (AppStack t))
 

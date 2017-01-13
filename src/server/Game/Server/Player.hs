@@ -29,7 +29,7 @@ import Game.Monad
 import Game.Player
 
 -- | Contains mappings between player ids, peers and player payload
-type PlayerMapping = (Map PlayerId ServerPlayer, Map Peer PlayerId)
+type PlayerMapping = (Map PlayerId ServerPlayer, Map AppPeer PlayerId)
 
 -- | Requests from players to create bullets
 type PlayerShoots t = Event t (Map PlayerId CreateBullet)
@@ -64,7 +64,7 @@ playersCollection hitsE = do
             modifyExternalRef playerCounterRef $ \v -> (v+1, ())
             players <- sample . current $ fmap snd playersMappingDyn
             let
-              delMap :: Map PlayerId (Maybe Peer)
+              delMap :: Map PlayerId (Maybe AppPeer)
               delMap = case M.lookup discPeer players of
                 Nothing -> mempty
                 Just i' -> M.singleton i' Nothing
@@ -72,7 +72,9 @@ playersCollection hitsE = do
     -- collection primitive, note recursive dependency
     colorRoller <- makeColorRoller
     let playerWrapper i = player colorRoller (mkHitE i) (mkKills i) i
-    collReses <- hostSimpleCollection playerCollectionId mempty updE playerWrapper
+    peers <- networkPeers
+    let filterPeer _ _ = () -- Don't send peer to clients
+    collReses <- hostCollection playerCollectionId peers mempty updE filterPeer playerWrapper
     let playersMapDyn = joinDynThroughMap $ fmap fst <$> collReses
         shootsEvents  = switchPromptlyDyn $ mergeMap . fmap snd <$> collReses
     -- post processing to get peer-id map
@@ -96,7 +98,7 @@ type ServerPlayer = Player ServerPlayerExt
 
 -- | Player server private data
 data ServerPlayerExt = ServerPlayerExt {
-  playerPeer :: Peer
+  playerPeer :: AppPeer
 } deriving (Show)
 
 -- | Player component
@@ -105,7 +107,7 @@ player :: forall t . AppFrame t
   -> Event t () -- ^ Hit event from bullet
   -> Event t Int -- ^ Event about count of murders of another players
   -> PlayerId -- ^ Player ID that is simulated
-  -> Peer -- ^ Player peer
+  -> AppPeer -- ^ Player peer
   -- | Returns dynamic player and event when user requests bullet creation
   -> AppMonad t (Dynamic t ServerPlayer, Event t CreateBullet)
 player colorRoller hitE killsE i peer = do
@@ -216,8 +218,8 @@ player colorRoller hitE killsE i peer = do
             _ -> return Nothing
       -- send commands/responses to peer
       _ <- sendToClientMany playerCommandId ReliableMessage (commandsE <> respE) peer
-      let bulletsPerSecond = 3
-      alignWithFps bulletsPerSecond shootE
+      -- alignWithFps playerShootRatio shootE
+      return shootE
 
 -- | Create item roller for player colors
 makeColorRoller :: AppFrame t => AppMonad t (ItemRoller t (V3 Double))

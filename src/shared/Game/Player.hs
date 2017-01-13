@@ -10,6 +10,7 @@ module Game.Player(
   , playerScoreId
   , PlayerCommand(..)
   , printPlayer
+  , playerShootRatio
   ) where
 
 import Data.Monoid
@@ -78,3 +79,7 @@ printPlayer i pdyn =
     <> "\tspd:   " <> showl playerSpeed <> "\n"
     <> "\tsize:  " <> showl playerSize <> "\n"
     <> "\tcustom:" <> showl playerCustom
+
+-- | Number of bullets in second that player can shoot
+playerShootRatio :: Int
+playerShootRatio = 3

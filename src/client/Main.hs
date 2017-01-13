@@ -6,10 +6,10 @@ import Data.Monoid
 import Game.GoreAndAsh
 import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Network
+import Game.GoreAndAsh.Network.Backend.TCP
 import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
-import Network.Socket
 import Options.Applicative as OA
 import SDL.TTF.FFI (TTFFont)
 
@@ -59,36 +59,31 @@ loadFont mfile = liftIO $ do
     Just n -> return n
   TTF.openFont filename 40
 
--- | Find server address by host name or IP
-resolveServer :: MonadIO m => HostName -> ServiceName -> m SockAddr
-resolveServer host serv = do
-  addrInfo <- liftIO $ getAddrInfo Nothing (Just host) (Just serv)
-  case addrInfo of
-    [] -> fail $ "Cannot resolve server address: " <> host
-    (a : _) -> return $ addrAddress a
-
 -- | Execute client with given options
 client :: Options -> IO ()
 client Options{..} = TTF.withInit $ do
   runSpiderHost $ hostApp $ runModule opts clientGame
   where
     opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncSlave
-    netopts = (defaultNetworkOptions ()) {
-        networkDetailedLogging = False
+    tcpOpts = TCPBackendOpts {
+        tcpHostName = "localhost"
+      , tcpServiceName = ""
+      , tcpParameters = defaultTCPParameters
+      , tcpDuplexHints = defaultConnectHints
+      }
+    netopts = (defaultNetworkOptions tcpOpts ()) {
+        networkOptsDetailedLogging = False
       }
 
     clientGame :: AppMonad Spider ()
     clientGame = do
       loggingSetDebugFlag True
-      addr <- resolveServer optionHostName optionService
       e <- getPostBuild
-      connectedE <- dontCare =<< (clientConnect $ ffor e $ const $ ClientConnect {
-          clientAddrr = addr
-        , clientChanns = 3
-        , clientIncoming = 0
-        , clientOutcoming = 0
-        })
+      let EndPointAddress addr = encodeEndPointAddress optionHostName optionService 0
+      connectedE <- clientConnect $ ffor e $ const (addr, defaultConnectHints)
+      conErrorE <- networkConnectionError
       logInfoE $ ffor connectedE $ const "Connected to server!"
+      logErrorE $ ffor conErrorE $ \er -> "Failed to connect: " <> showl er
       _ <- switchAppHost (pure mempty) $ ffor connectedE $ const playPhase
       return ()
 
