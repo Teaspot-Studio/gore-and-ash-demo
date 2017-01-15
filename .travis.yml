@@ -43,4 +43,4 @@ install:
 
 script:
 # Build the package, its tests, and its docs and run the tests
-- stack --no-terminal test --haddock --no-haddock-deps --flag gore-and-ash-sync:examples --pedantic
+- stack --no-terminal test --haddock --no-haddock-deps --pedantic -j 1
