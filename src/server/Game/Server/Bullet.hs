@@ -47,11 +47,13 @@ processBullets pmapDyn createE = do
           in if M.null dieMap then Nothing
             else Just dieMap
         selfDelE = ffor shootMap $ fmap (const Nothing) -- when hit bullet dies
+        allDelsE = delE <> selfDelE
     -- automatic collection synchronisation
-    let updE = addE <> delE <> selfDelE
+    let updE = addE <> allDelsE
     colRes <- hostSimpleCollection bulletCollectionId mempty updE (bullet pmapDyn)
     let bulletMapDyn = joinDynThroughMap $ fmap fst <$> colRes
         shootMap = switchPromptlyDyn $ mergeMap . fmap snd <$> colRes
+  _ <- syncUnregisterNames $ fmap show . M.keys <$> allDelsE -- delete sync objects for deleted bullets
   return (bulletMapDyn, shootMap)
 
 -- | Controller of single bullet

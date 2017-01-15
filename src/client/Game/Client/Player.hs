@@ -80,7 +80,8 @@ handlePlayers w camDyn cheating = do
     phase2 :: PlayerId -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
     phase2 localId = do
       lplayer <- localPlayer w camDyn localId cheating
-      remotePlayers <- joinDynThroughMap <$> remoteCollection playerCollectionId (\pid () -> player localId pid)
+      (remotePlayers', _) <- remoteCollection playerCollectionId (\pid () -> player localId pid)
+      let remotePlayers = joinDynThroughMap remotePlayers'
       return $ (,)
         <$> lplayer
         <*> (M.delete localId <$> remotePlayers)

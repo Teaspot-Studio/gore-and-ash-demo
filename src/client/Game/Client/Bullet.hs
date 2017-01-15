@@ -5,7 +5,10 @@ module Game.Client.Bullet(
 
 import Control.Monad
 import Data.Map.Strict (Map)
+import Data.Maybe
 import Linear
+
+import qualified Data.Map.Strict as M
 
 import Game.Bullet
 import Game.GoreAndAsh
@@ -19,7 +22,10 @@ type ClientBullet = Bullet ()
 -- | Process all bullets, sync them from server
 handleBullets :: AppFrame t => AppMonad t (Dynamic t (Map BulletId ClientBullet))
 handleBullets = do
-  joinDynThroughMap <$> remoteCollection bulletCollectionId bullet
+  (bulletsDyn, updMapE) <-  remoteCollection bulletCollectionId bullet
+  let delsE = ffor updMapE $ M.filter isNothing
+  _ <- syncUnregisterNames $ fmap show . M.keys <$> delsE -- delete sync objects for deleted bullets
+  return $ joinDynThroughMap bulletsDyn
 
 -- | Controller of single bullet
 bullet :: forall t . AppFrame t

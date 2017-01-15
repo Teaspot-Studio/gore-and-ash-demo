@@ -23,7 +23,7 @@ data Bullet s = Bullet {
 , bulletPlayer   :: !PlayerId    -- ^ Owner player
 , bulletLifeTime :: !Double      -- ^ Time left to live
 , bulletCustom   :: !s           -- ^ Custom data for bullet
-} deriving (Generic, Show)
+} deriving (Generic, Show, Eq)
 
 instance Functor Bullet where
   fmap f b = b { bulletCustom = f $ bulletCustom b }

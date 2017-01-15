@@ -84,6 +84,7 @@ executable gore-and-ash-demo-client
     UndecidableInstances
 
   ghc-options: -Wall -threaded
+  -- ghc-options: -Wall -threaded -prof -auto-all -rtsopts
 
 executable gore-and-ash-demo-server
   hs-source-dirs:

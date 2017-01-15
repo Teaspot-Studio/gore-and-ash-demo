@@ -77,7 +77,7 @@ client Options{..} = TTF.withInit $ do
 
     clientGame :: AppMonad Spider ()
     clientGame = do
-      loggingSetDebugFlag True
+      loggingSetDebugFlag False
       e <- getPostBuild
       let EndPointAddress addr = encodeEndPointAddress optionHostName optionService 0
       connectedE <- clientConnect $ ffor e $ const (addr, defaultConnectHints)

@@ -218,8 +218,7 @@ player colorRoller hitE killsE i peer = do
             _ -> return Nothing
       -- send commands/responses to peer
       _ <- sendToClientMany playerCommandId ReliableMessage (commandsE <> respE) peer
-      -- alignWithFps playerShootRatio shootE
-      return shootE
+      limitRate playerShootRatio shootE
 
 -- | Create item roller for player colors
 makeColorRoller :: AppFrame t => AppMonad t (ItemRoller t (V3 Double))
