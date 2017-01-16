@@ -2,7 +2,7 @@ module Graphics.Square(
     renderSquare
   ) where
 
-import Consts
+import Control.Monad.IO.Class
 import Data.Word
 import Foreign.C.Types
 import Game.Camera
@@ -11,15 +11,11 @@ import Game.GoreAndAsh.SDL
 import SDL
 
 -- | Function of rendering player
-renderSquare :: MonadSDL m => Double -> V2 Double -> V3 Double -> Camera -> GameMonadT m ()
-renderSquare size pos col c = do
-  mwr <- sdlGetWindowM mainWindowName
-  case mwr of
-    Nothing -> return ()
-    Just (w, r) -> do
-      wsize <- fmap (fmap fromIntegral) . get $ windowSize w
-      rendererDrawColor r $= transColor col
-      fillRect r $ Just $ transformedSquare wsize
+renderSquare :: MonadIO m => Window -> Renderer -> Camera -> Double -> V2 Double -> V3 Double -> m ()
+renderSquare window renderer c size pos col  = do
+  wsize <- fmap (fmap fromIntegral) . get $ windowSize window
+  rendererDrawColor renderer $= transColor col
+  fillRect renderer $ Just $ transformedSquare wsize
   where
     transColor :: V3 Double -> V4 Word8
     transColor (V3 r g b) = V4 (round $ r * 255) (round $ g * 255) (round $ b * 255) 255

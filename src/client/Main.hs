@@ -1,87 +1,105 @@
 module Main where
 
-import Consts
-import Control.DeepSeq
-import Control.Monad (join)
+import Control.Lens
 import Control.Monad.IO.Class
-import Data.Maybe (fromMaybe)
-import Data.Proxy
-import FPS
-import Game
+import Data.Monoid
 import Game.GoreAndAsh
+import Game.GoreAndAsh.Logging
 import Game.GoreAndAsh.Network
+import Game.GoreAndAsh.Network.Backend.TCP
 import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
-import Network.BSD (getHostByName, hostAddress)
-import Network.Socket (SockAddr(..))
-import System.Environment
-import Text.Read
+import Game.GoreAndAsh.Time
+import Options.Applicative as OA
+import SDL.TTF.FFI (TTFFont)
 
-import Linear (V4(..))
+import qualified SDL.TTF as TTF
 
-gameFPS :: Int
-gameFPS = 60
+import Game
+import Graphics
 
-parseArgs :: IO (String, Int)
-parseArgs = do
-  args <- getArgs
-  case args of
-    [h, p] -> case readMaybe p of
-      Nothing -> fail "Failed to parse port"
-      Just pint -> return (h, pint)
-    _ -> fail "Misuse of arguments: gore-and-ash-client HOST PORT"
+import Paths_gore_and_ash_demo
 
+-- | CLI options of client
+data Options = Options {
+  optionHostName :: !HostName    -- ^ Host address of server
+, optionService  :: !ServiceName -- ^ Port of server
+, optionCheating :: !Bool        -- ^ Simulate hacked client
+, optionFont     :: !(Maybe FilePath)    -- ^ Path to font file
+}
 
-main :: IO ()
-main = withModule (Proxy :: Proxy AppMonad) $ do
-  gs <- newGameState mainWire
-  (host, port) <- liftIO parseArgs
-  fps <- makeFPSBounder 60
-  firstLoop fps host port gs
+-- | Parser of CLI options
+optionsParser :: Parser Options
+optionsParser = Options
+  <$> strOption (
+       long "host"
+    <> metavar "HOST_NAME"
+    <> help "address of remote game server"
+    )
+  <*> strOption (
+       long "port"
+    <> metavar "PORT_NUMBER"
+    <> help "port of remote game server"
+    )
+  <*> OA.switch (
+       long "cheating"
+    <> help "simulate hacked client to test rejecting server behavior"
+    )
+  <*> optional (strOption $
+       long "font"
+    <> metavar "TTF_FILE_PATH"
+    <> help "font to use to render text"
+    )
+
+-- | Load font either from built in or from specified file
+loadFont :: MonadIO m => Maybe FilePath -> m TTFFont
+loadFont mfile = liftIO $ do
+  filename <- case mfile of
+    Nothing -> getDataFileName "media/AnonymousPro-Regular.ttf"
+    Just n -> return n
+  TTF.openFont filename 40
+
+-- | Execute client with given options
+client :: Options -> IO ()
+client Options{..} = TTF.withInit $ do
+  runSpiderHost $ hostApp $ runModule opts clientGame
   where
-    -- | Resolve given hostname and port
-    getAddr s p = do
-      he <- getHostByName s
-      return $ SockAddrInet p $ hostAddress he
+    opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncSlave
+    tcpOpts = TCPBackendOpts {
+        tcpHostName = "localhost"
+      , tcpServiceName = ""
+      , tcpParameters = defaultTCPParameters
+      , tcpDuplexHints = defaultConnectHints
+      }
+    netopts = (defaultNetworkOptions tcpOpts ()) {
+        networkOptsDetailedLogging = False
+      }
 
-    firstLoop fps host port gs = do
-      (_, gs') <- stepGame gs $ do
-        networkSetDetailedLoggingM False
-        syncSetLoggingM False
-        syncSetRoleM SyncSlave
-        networkBind Nothing 1 2 0 0
-        addr <- liftIO $ getAddr host (fromIntegral port)
-        _ <- networkConnect addr 2 0
-        _ <- sdlCreateWindowM mainWindowName "Gore&Ash Client" defaultWindow defaultRenderer
-        sdlSetBackColor mainWindowName $ Just $ V4 200 200 200 255
-      gameLoop fps gs'
+    clientGame :: AppMonad Spider ()
+    clientGame = do
+      loggingSetDebugFlag False
+      e <- getPostBuild
+      let EndPointAddress addr = encodeEndPointAddress optionHostName optionService 0
+      connectedE <- clientConnect $ ffor e $ const (addr, defaultConnectHints)
+      conErrorE <- networkConnectionError
+      logInfoE $ ffor connectedE $ const "Connected to server!"
+      logErrorE $ ffor conErrorE $ \er -> "Failed to connect: " <> showl er
+      _ <- switchAppHost (pure mempty) $ ffor connectedE $ const playPhase
+      return ()
 
-    gameLoop fps gs = do
-      waitFPSBound fps
-      (mg, gs') <- stepGame gs (return ())
-      mg `deepseq` if fromMaybe False $ gameExit <$> join mg
-        then cleanupGameState gs'
-        else gameLoop fps gs'
+    playPhase :: AppMonad Spider ()
+    playPhase = do
+      font <- loadFont optionFont
+      rec
+        w <- createMainWindow (const () <$> redrawE) (drawFrame gameDyn font) defaultWindowCfg
+        gameDyn <- playGame w optionCheating
+        redrawE <- alignWithFps 60 $ updated gameDyn
+      return ()
 
-{-
 main :: IO ()
-main = do
-  initializeAll
-  window <- createWindow "My SDL Application" defaultWindow
-  renderer <- createRenderer window (-1) defaultRenderer
-  appLoop renderer
-
-appLoop :: Renderer -> IO ()
-appLoop renderer = do
-  events <- pollEvents
-  let eventIsQPress event =
-        case eventPayload event of
-          KeyboardEvent keyboardEvent ->
-            keyboardEventKeyMotion keyboardEvent == Pressed &&
-            keysymKeycode (keyboardEventKeysym keyboardEvent) == KeycodeQ
-          _ -> False
-      qPressed = not (null (filter eventIsQPress events))
-  rendererDrawColor renderer $= V4 0 0 255 255
-  clear renderer
-  present renderer
-  unless qPressed (appLoop renderer) -}
+main = execParser opts >>= client
+  where
+    opts = info (helper <*> optionsParser)
+      ( fullDesc
+     <> progDesc "Start Gore & Ash client demo"
+     <> header "gore-and-ash-demo-client - client app for engine demo" )

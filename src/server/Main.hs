@@ -1,76 +1,69 @@
-module Main where 
+module Main where
 
-import Control.Exception
-import Control.Monad.IO.Class
-import Data.Proxy 
-import Game 
-import Game.Core
+import Control.Lens
+import Data.Monoid
 import Game.GoreAndAsh
-import Game.GoreAndAsh.Actor
 import Game.GoreAndAsh.Network
+import Game.GoreAndAsh.Network.Backend.TCP
 import Game.GoreAndAsh.Sync
-import Network.BSD (getHostByName, hostAddress)
-import Network.Socket (SockAddr(..))
-import System.Exit
-import Data.IORef 
-import System.Environment
-import Text.Read 
+import Game.GoreAndAsh.Logging
+import Options.Applicative
 
-import FPS 
+import Game
 
-simulationFPS :: Int 
-simulationFPS = 60 
+-- | CLI options of server
+data Options = Options {
+  optionService :: !ServiceName -- ^ Port of server
+}
 
-parseArgs :: IO (String, Int)
-parseArgs = do 
-  args <- getArgs 
-  case args of 
-    [h, p] -> case readMaybe p of 
-      Nothing -> fail "Failed to parse port"
-      Just pint -> return (h, pint)
-    _ -> fail "Misuse of arguments: gore-and-ash-server HOST PORT"
+-- | Parser of CLI options
+optionsParser :: Parser Options
+optionsParser = Options
+  <$> strOption (
+       long "port"
+    <> metavar "PORT_NUMBER"
+    <> help "port of remote game server"
+    )
+
+-- | Execute server with given options
+server :: Options -> IO ()
+server Options{..} = do
+  runSpiderHost $ hostApp $ runModule opts serverGame
+  where
+    opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncMaster
+    tcpOpts = TCPBackendOpts {
+        tcpHostName = "localhost"
+      , tcpServiceName = optionService
+      , tcpParameters = defaultTCPParameters
+      , tcpDuplexHints = defaultConnectHints
+      }
+    netopts = (defaultNetworkOptions tcpOpts ()) {
+        networkOptsDetailedLogging = False
+      }
+
+    serverGame :: AppMonad Spider ()
+    serverGame = do
+      e <- getPostBuild
+      logInfoE $ ffor e $ const $ "Started to listen port " <> showl optionService <> " ..."
+
+      connE <- peerConnected
+      logInfoE $ ffor connE $ const $ "Peer is connected..."
+
+      discE <- peerDisconnected
+      logInfoE $ ffor discE $ const $ "Peer is disconnected..."
+
+      someErrorE <- networkSomeError
+      sendErrorE <- networkSendError
+      logWarnE $ ffor someErrorE $ \er -> "Network error: " <> showl er
+      logWarnE $ ffor sendErrorE $ \er -> "Network send error: " <> showl er
+
+      _ <- playGame
+      return ()
 
 main :: IO ()
-main = withModule (Proxy :: Proxy AppMonad) $ do
-  gs <- newGameState $ runActor' mainWire
-  gsRef <- newIORef gs
-  (host, port) <- liftIO parseArgs
-  fps <- makeFPSBounder simulationFPS
-  firstStep fps host port gs gsRef `onCtrlC` exitHandler gsRef
+main = execParser opts >>= server
   where
-    -- | What to do on emergency exit
-    exitHandler gsRef = do 
-      gs <- readIORef gsRef 
-      cleanupGameState gs
-      exitSuccess
-
-    -- | Resolve given hostname and port
-    getAddr s p = do
-      he <- getHostByName s
-      return $ SockAddrInet p $ hostAddress he
-
-    -- | Initialization step
-    firstStep fps host port gs gsRef = do 
-      (_, gs') <- stepGame gs $ do 
-        networkSetDetailedLoggingM False
-        syncSetLoggingM True
-        syncSetRoleM SyncMaster
-        addr <- liftIO $ getAddr host (fromIntegral port)
-        networkBind (Just addr) 100 2 0 0
-      writeIORef gsRef gs'
-      gameLoop fps gs' gsRef
-
-    -- | Normal game loop
-    gameLoop fps gs gsRef = do 
-      waitFPSBound fps
-      (_, gs') <- stepGame gs (return ())
-      writeIORef gsRef gs'
-      gameLoop fps gs' gsRef
-
--- | Executes given handler on Ctrl-C pressing
-onCtrlC :: IO a -> IO () -> IO a
-p `onCtrlC` q = catchJust isUserInterrupt p (const $ q >> p `onCtrlC` q)
-  where
-    isUserInterrupt :: AsyncException -> Maybe ()
-    isUserInterrupt UserInterrupt = Just ()
-    isUserInterrupt _             = Nothing
+    opts = info (helper <*> optionsParser)
+      ( fullDesc
+     <> progDesc "Start Gore & Ash server demo"
+     <> header "gore-and-ash-demo-server - server app for engine demo" )

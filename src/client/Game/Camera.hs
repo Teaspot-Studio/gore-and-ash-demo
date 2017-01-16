@@ -1,80 +1,91 @@
 module Game.Camera(
     Camera(..)
-  , CameraId(..)
-  , cameraWire
+  , camera
   , cameraMatrix
   , cameraToWorld
   , cameraFromWorld
   ) where
 
-import Control.DeepSeq
-import Control.Lens 
-import Control.Wire
-import Control.Wire.Unsafe.Event
+import Control.Lens
+import Data.Monoid
 import GHC.Generics (Generic)
 import Linear
-import Prelude hiding (id, (.))
 
-import Game.Core
+import qualified Data.Foldable as F
+
+import Game.Monad
 import Game.GoreAndAsh
-import Game.GoreAndAsh.Actor
 import Game.GoreAndAsh.SDL
+import Game.GoreAndAsh.Time
 
 data Camera = Camera {
-  cameraId :: !CameraId
-, cameraPos :: !(V2 Double)
+  cameraPos  :: !(V2 Double)
 , cameraZoom :: !Double
 } deriving (Generic)
 
-instance NFData Camera 
+-- | Available actions with camera
+data CameraAction = MoveCamera (V2 Double) | ZoomCamera Double
 
-newtype CameraId = CameraId { unCameraId :: Int } deriving (Eq, Show, Generic)
-instance NFData CameraId 
+-- | Update camera according given action
+applyCamAction :: Camera -> CameraAction -> Camera
+applyCamAction c a = case a of
+  MoveCamera dv -> c { cameraPos = cameraPos c + dv }
+  ZoomCamera k -> c {
+      cameraZoom = min 3 $ max 0.01 $ cameraZoom c + k
+    }
 
-data CameraMessage
+camera :: forall t . AppFrame t => WindowWidget t -> AppMonad t (Dynamic t Camera)
+camera w = do
+  let dt = 0.01 :: Double
+  tickE <- fmap (const dt) <$> tickEvery (realToFrac dt)
+  let
+    dvDown  = V2 0              (-cameraSpeed)
+    dvUp    = V2 0              cameraSpeed
+    dvLeft  = V2 (-cameraSpeed) 0
+    dvRight = V2 cameraSpeed    0
+  downE  <- fmap (MoveCamera . (dvDown  *)) <$> pressingEvent tickE ScancodeS
+  upE    <- fmap (MoveCamera . (dvUp    *)) <$> pressingEvent tickE ScancodeW
+  leftE  <- fmap (MoveCamera . (dvLeft  *)) <$> pressingEvent tickE ScancodeA
+  rightE <- fmap (MoveCamera . (dvRight *)) <$> pressingEvent tickE ScancodeD
+  let
+    zoomE = ZoomCamera . (* 0.05) . fromIntegral <$> mouseScrollY w
 
-instance ActorMessage CameraId where
-  type ActorMessageType CameraId = CameraMessage
-  toCounter = unCameraId
-  fromCounter = CameraId
+    updE :: Event t [CameraAction]
+    updE = fmap pure downE
+      <> fmap pure upE
+      <> fmap pure leftE
+      <> fmap pure rightE
+      <> fmap pure zoomE
 
-cameraWire :: (CameraId -> Camera) -> AppActor CameraId a Camera 
-cameraWire initialCamera = makeActor $ \i -> stateWire (initialCamera i) $ proc (_, c) -> do 
-  forceNF
-    . moveCamera (V2 0 (-cameraSpeed)) ScancodeS 
-    . moveCamera (V2 0 cameraSpeed) ScancodeW 
-    . moveCamera (V2 cameraSpeed 0) ScancodeD
-    . moveCamera (V2 (-cameraSpeed) 0) ScancodeA
-    . zoomCamera 0.1 -< c
-  where 
-    cameraSpeed :: Double 
-    cameraSpeed = 0.1
+    updCamera :: [CameraAction] -> Camera -> Camera
+    updCamera as c = F.foldl' applyCamAction c as
 
-    moveCamera :: V2 Double -> Scancode -> AppWire Camera Camera
-    moveCamera dv k = proc c -> do 
-      e <- keyPressing k -< ()
-      let newCam = c {
-            cameraPos = cameraPos c + dv 
-          }
-      returnA -< event c (const newCam) e
+  foldDyn updCamera initialCamera updE
+  where
+    cameraSpeed :: Double
+    cameraSpeed = 0.4
 
-    zoomCamera :: Double -> AppWire Camera Camera 
-    zoomCamera z = proc c -> do 
-      e <- mouseScrollY -< ()
-      let newCam k = c {
-            cameraZoom = min 3 $ max 0.01 $ cameraZoom c + 0.2 * z * k
-          }
-      returnA -< event c (newCam . fromIntegral) e 
+    initialCamera = Camera {
+        cameraPos  = 0
+      , cameraZoom = 0.01
+      }
+
+    -- While key pressed generate the following event
+    pressingEvent :: Event t Double -> Scancode -> AppMonad t (Event t (V2 Double))
+    pressingEvent e scode = do
+      pressDyn <- keyPressing w scode
+      let mkTag mpress v = const (V2 v v) <$> mpress
+      return $ attachPromptlyDynWithMaybe mkTag pressDyn e
 
 -- | Calculate transformation matrix for camera
 cameraMatrix :: Camera -> M33 Double
 cameraMatrix Camera{..} = translate2D (V2 (-cameraPos^._x) (-cameraPos^._y))
-  !*! scale2D (V2 (-cameraZoom) (-cameraZoom))
+  !*! scale2D (V2 cameraZoom cameraZoom)
 
 -- | Transform camera local coords to world
 cameraToWorld :: Camera -> V2 Double -> V2 Double
 cameraToWorld c v = inv33 (cameraMatrix c) `applyTransform2D` v
 
 -- | Transform world coords to camera coords
-cameraFromWorld :: Camera -> V2 Double -> V2 Double 
+cameraFromWorld :: Camera -> V2 Double -> V2 Double
 cameraFromWorld c v = cameraMatrix c `applyTransform2D` v
