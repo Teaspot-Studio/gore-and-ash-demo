@@ -7,7 +7,7 @@ module Game(
 import Data.Map.Strict (Map)
 
 import qualified Data.Map.Strict as M
-import qualified Data.Map.Strict.Merge as M
+import qualified Data.Map.Merge.Strict as M
 
 import Game.GoreAndAsh
 

@@ -91,7 +91,9 @@ client Options{..} = TTF.withInit $ do
     playPhase = do
       font <- loadFont optionFont
       rec
-        w <- createMainWindow (const () <$> redrawE) (drawFrame gameDyn font) defaultWindowCfg
+        initializeAll
+        w <- createMainWindow (const () <$> redrawE) (drawFrame gameDyn font) $ defaultWindowCfg
+          & windowCfgConfig %~ (\cfg -> cfg { windowOpenGL = Just defaultOpenGL})
         gameDyn <- playGame w optionCheating
         redrawE <- alignWithFps 60 $ updated gameDyn
       return ()
