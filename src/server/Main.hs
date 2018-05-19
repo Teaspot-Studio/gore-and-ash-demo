@@ -13,13 +13,19 @@ import Game
 
 -- | CLI options of server
 data Options = Options {
-  optionService :: !ServiceName -- ^ Port of server
+  optionHostName :: !HostName    -- ^ Host of server
+, optionService  :: !ServiceName -- ^ Port of server
 }
 
 -- | Parser of CLI options
 optionsParser :: Parser Options
 optionsParser = Options
   <$> strOption (
+       long "host"
+    <> metavar "HOST_NAME"
+    <> help "address of remote game server"
+    )
+  <*> strOption (
        long "port"
     <> metavar "PORT_NUMBER"
     <> help "port of remote game server"
@@ -32,7 +38,7 @@ server Options{..} = do
   where
     opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncMaster
     tcpOpts = TCPBackendOpts {
-        tcpHostName = "127.0.0.1"
+        tcpHostName = optionHostName
       , tcpServiceName = optionService
       , tcpParameters = defaultTCPParameters
       , tcpDuplexHints = defaultConnectHints

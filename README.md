@@ -10,8 +10,10 @@ Installation
 2. Install C dependencies:
     * `SDL2`
     * `SDL2_ttf`
+    * `zlib`
+    * `OpenGL`
 2. Run `stack install` from root directory of the repo;
-3. Start server `gore-and-ash-demo-server --port 5556`;
+3. Start server `gore-and-ash-demo-server --host 127.0.0.1 --port 5556`;
 4. Start several clients with `gore-and-ash-demo-client --host 127.0.0.1 --port 5556`.
 
 
