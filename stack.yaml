@@ -1,14 +1,14 @@
 # For more information, see: https://github.com/commercialhaskell/stack/blob/release/doc/yaml_configuration.md
 
 # Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
-resolver: lts-9.13
+resolver: lts-11.9
 
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
 - location:
     git: https://github.com/reflex-frp/reflex.git
-    commit: 60d2878142943487987feeeea108dbed5405f469
+    commit: e549ebb9439bc8fbf3152e1e84a9e62b9eadd40e
   extra-dep: true
 - location:
     git: https://github.com/bennofs/reflex-host.git
@@ -16,23 +16,23 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash.git
-    commit: 53581682c40e44e587be85228cefa9fcdbb57e88
+    commit: a891a38c2ca6c57eacb0ce26682fff1ae543d571
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-logging.git
-    commit: ec3d38cfa9dd14832b57516168d3179e20fc52ec
+    commit: 40787aff2641ed80c63ec2b7b91462c9052c51a2
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-network.git
-    commit: ac60070d05ecef9491be11873e2968bae2574c2d
+    commit: 207e423ffa34eb821e8ca2c4d5649c5c0ab32078
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-sync.git
-    commit: 219da1d17df42d34f7d420dc38dab36cc39f636b
+    commit: b3ff49bad30fb2482a13dd398da89f6d40287a2d
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-sdl.git
-    commit: 1e8a673342e4aa5ff1705fda20d502c613bde48b
+    commit: e708acf0a67e2f0fedf1318829f972e7f19b9566
   extra-dep: true
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)

@@ -32,7 +32,7 @@ server Options{..} = do
   where
     opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncMaster
     tcpOpts = TCPBackendOpts {
-        tcpHostName = "localhost"
+        tcpHostName = "127.0.0.1"
       , tcpServiceName = optionService
       , tcpParameters = defaultTCPParameters
       , tcpDuplexHints = defaultConnectHints

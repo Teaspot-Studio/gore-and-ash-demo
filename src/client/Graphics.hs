@@ -1,12 +1,16 @@
+{-# LANGUAGE OverloadedLists #-}
 module Graphics(
     drawFrame
   ) where
 
 import Control.Monad
 import Data.Map.Strict (Map)
+import Data.Monoid
+import Data.Text (Text, pack)
 import Game.GoreAndAsh
 import Game.GoreAndAsh.SDL
-import SDL.TTF.FFI (TTFFont)
+import SDL.Font (Font)
+import SDL.Vect (V4(..))
 
 import Game
 import Game.Bullet
@@ -19,12 +23,14 @@ import Graphics.Square
 
 import qualified Data.Foldable as F
 import qualified Data.Map.Strict as M
-import qualified SDL.Raw as SDL
-import qualified SDL.TTF as TTF
+import qualified SDL.Font as Font
+
+showt :: Show a => a -> Text
+showt = pack . show
 
 -- | Here all code needed to draw a single game frame is located
 drawFrame :: forall t . AppFrame t => Dynamic t Game
-  -> TTFFont -- ^ Font to render text with
+  -> Font -- ^ Font to render text with
   -> Window -- ^ Window where to draw
   -> Renderer  -- ^ Renderer to use
   -> HostFrame t ()
@@ -66,7 +72,7 @@ drawBullet w r cam Bullet{..} = do
 drawScore :: forall t . AppFrame t
   => Window -- ^ Window where to draw
   -> Renderer -- ^ Renderer to use
-  -> TTFFont -- ^ Font to use to render text with
+  -> Font -- ^ Font to use to render text with
   -> Map PlayerId ClientPlayer -- ^ Players collection
   -> HostFrame t ()
 drawScore _ r font players = unless (null players) $ do
@@ -74,18 +80,17 @@ drawScore _ r font players = unless (null players) $ do
   return ()
   where
     msgs = M.elems . M.mapWithKey mkLine $ playerScore <$> players
-    mkLine i n = "Player " ++ show (unPlayerId i) ++ ": " ++ show n
+    mkLine i n = "Player " <> showt (unPlayerId i) <> ": " <> showt n
 
-    color = SDL.Color 0 0 0 0
+    color = V4 0 0 0 0
     xoffset = 20
     yoffset = 50
 
     drawTextLine y msg = do
-      surf <- TTF.renderUTF8Solid font msg color
+      surf <- Font.solid font color msg
       size <- surfaceDimensions surf
       tex <- createTextureFromSurface r surf
       copy r tex Nothing (Just $ Rectangle (P $ V2 xoffset y) size)
       destroyTexture tex
       freeSurface surf
       return $ y + yoffset
-

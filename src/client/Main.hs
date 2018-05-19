@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Exception
 import Control.Lens
 import Control.Monad.IO.Class
 import Data.Monoid
@@ -11,9 +12,9 @@ import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
 import Options.Applicative as OA
-import SDL.TTF.FFI (TTFFont)
+import SDL.Font (Font)
 
-import qualified SDL.TTF as TTF
+import qualified SDL.Font as Font
 
 import Game
 import Graphics
@@ -52,21 +53,21 @@ optionsParser = Options
     )
 
 -- | Load font either from built in or from specified file
-loadFont :: MonadIO m => Maybe FilePath -> m TTFFont
+loadFont :: MonadIO m => Maybe FilePath -> m Font
 loadFont mfile = liftIO $ do
   filename <- case mfile of
     Nothing -> getDataFileName "media/AnonymousPro-Regular.ttf"
     Just n -> return n
-  TTF.openFont filename 40
+  Font.load filename 40
 
 -- | Execute client with given options
 client :: Options -> IO ()
-client Options{..} = TTF.withInit $ do
+client Options{..} = bracket_ Font.initialize Font.quit $ do
   runSpiderHost $ hostApp $ runModule opts clientGame
   where
     opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncSlave
     tcpOpts = TCPBackendOpts {
-        tcpHostName = "localhost"
+        tcpHostName = "127.0.0.1"
       , tcpServiceName = ""
       , tcpParameters = defaultTCPParameters
       , tcpDuplexHints = defaultConnectHints
