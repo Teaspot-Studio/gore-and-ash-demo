@@ -62,17 +62,20 @@ loadFont mfile = liftIO $ do
 
 -- | Execute client with given options
 client :: Options -> IO ()
-client Options{..} = bracket_ Font.initialize Font.quit $ do
-  runSpiderHost $ hostApp $ runModule opts clientGame
+client Options{..} = withSDLT $ withNetwork $ bracket_ Font.initialize Font.quit $ do
+  mres <- runGM $ runLoggerT . runNetworkT netopts . runSyncT sopts . runSDLT $ clientGame
+  case mres of
+    Left er -> print $ renderNetworkError er
+    Right _ -> pure ()
   where
-    opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncSlave
+    sopts = defaultSyncOptions & syncOptionsRole .~ SyncSlave
     tcpOpts = TCPBackendOpts {
         tcpHostName = "127.0.0.1"
       , tcpServiceName = ""
       , tcpParameters = defaultTCPParameters
       , tcpDuplexHints = defaultConnectHints
       }
-    netopts = (defaultNetworkOptions tcpOpts ()) {
+    netopts = (defaultNetworkOptions tcpOpts) {
         networkOptsDetailedLogging = False
       }
 
@@ -85,17 +88,18 @@ client Options{..} = bracket_ Font.initialize Font.quit $ do
       conErrorE <- networkConnectionError
       logInfoE $ ffor connectedE $ const "Connected to server!"
       logErrorE $ ffor conErrorE $ \er -> "Failed to connect: " <> showl er
-      _ <- switchAppHost (pure mempty) $ ffor connectedE $ const playPhase
+      _ <- networkHold (pure ()) $ ffor connectedE $ const playPhase
       return ()
 
     playPhase :: AppMonad Spider ()
     playPhase = do
       font <- loadFont optionFont
       rec
-        initializeAll
-        w <- createMainWindow (const () <$> redrawE) (drawFrame gameDyn font) $ defaultWindowCfg
-          & windowCfgConfig %~ (\cfg -> cfg { windowOpenGL = Just defaultOpenGL})
-        gameDyn <- playGame w optionCheating
+        let drawer win r = do
+              game <- runSpiderHost $ runHostFrame $ sample . current $ gameDyn
+              drawFrame game font win r
+        wE <- createMainWindow (const () <$> redrawE) drawer defaultWindowCfg
+        gameDyn <- playGame wE optionCheating
         redrawE <- alignWithFps 60 $ updated gameDyn
       return ()
 

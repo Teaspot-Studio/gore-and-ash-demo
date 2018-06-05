@@ -20,7 +20,6 @@ import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
 
 import Game.Camera
-import Game.Monad
 import Game.Player
 
 -- | Extended player with client data
@@ -36,31 +35,31 @@ type RemotePlayer = ClientPlayer
 type LocalPlayer = Player PlayerId
 
 -- | Sync players states from server
-handlePlayers :: forall t . AppFrame t
+handlePlayers :: forall t m b . (MonadGame t m, SyncMonad t b m, NetworkClient t b m)
   => WindowWidget t -- ^ Window for player inputs
   -> Dynamic t Camera -- ^ Camera for detecting world position of clicks
   -> Bool -- ^ Cheating flag, simulate hacked client
-  -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
+  -> m (Dynamic t (LocalPlayer, RemotePlayers))
 handlePlayers w camDyn cheating = do
   -- unify phases that they have equal result types
   let
-    phase1Unified :: AppMonad t (Event t PlayerId, Dynamic t (LocalPlayer, RemotePlayers))
+    phase1Unified :: m (Event t PlayerId, Dynamic t (LocalPlayer, RemotePlayers))
     phase1Unified = do
       e <- phase1
       return (e, pure (initialPlayer { playerCustom = PlayerId 0 }, mempty))
 
-    phase2Unified :: PlayerId -> AppMonad t (Event t PlayerId, Dynamic t (LocalPlayer, RemotePlayers))
+    phase2Unified :: PlayerId -> m (Event t PlayerId, Dynamic t (LocalPlayer, RemotePlayers))
     phase2Unified localId = do
       pair <- phase2 localId
       return (never, pair)
   rec
-    res <- holdAppHost phase1Unified $ phase2Unified <$> localIdE
-    let localIdE = switchPromptlyDyn . fmap fst $ res
+    res <- networkHold phase1Unified $ phase2Unified <$> localIdE
+    let localIdE = switch . current . fmap fst $ res
   return $ join . fmap snd $ res
   where
     -- Before we cant load other players we need to know id of local player.
     -- Server should send message about it immidieately after creation of new player.
-    phase1 :: AppMonad t (Event t PlayerId)
+    phase1 :: m (Event t PlayerId)
     phase1 = do
       buildE <- getPostBuild
       -- listen to response from server
@@ -77,7 +76,7 @@ handlePlayers w camDyn cheating = do
       return localIdE
 
     -- Now when we have local player id, we can load remote players
-    phase2 :: PlayerId -> AppMonad t (Dynamic t (LocalPlayer, RemotePlayers))
+    phase2 :: PlayerId -> m (Dynamic t (LocalPlayer, RemotePlayers))
     phase2 localId = do
       lplayer <- localPlayer w camDyn localId cheating
       (remotePlayers', _) <- remoteCollection playerCollectionId (\pid () -> player localId pid)
@@ -98,12 +97,12 @@ initialPlayer = Player {
   }
 
 -- | Client side controller for personal player
-localPlayer :: forall t . AppFrame t
+localPlayer :: forall t b m . (MonadGame t m, LoggingMonad t m, SyncMonad t b m, NetworkClient t b m)
   => WindowWidget t -- ^ Window the player inputs are came from
   -> Dynamic t Camera -- ^ Camera for detecting world positions
   -> PlayerId -- ^ ID of local player
   -> Bool -- ^ Cheating flag, simulate hacked client
-  -> AppMonad t (Dynamic t LocalPlayer)
+  -> m (Dynamic t LocalPlayer)
 localPlayer w camDyn i cheating = do
   buildE <- getPostBuild
   logInfoE $ ffor buildE $ const $ "Local player " <> showl i <> " is created!"
@@ -113,7 +112,7 @@ localPlayer w camDyn i cheating = do
   processCommands shootE
   return $ fmap (const i) <$> p
   where
-    syncPlayer :: AppMonad t (Dynamic t ClientPlayer)
+    syncPlayer :: m (Dynamic t ClientPlayer)
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
       col <- syncFromServer playerColorId 0
       spd <- fmap (if cheating then (*2) else id) <$> syncFromServer playerSpeedId 0
@@ -129,7 +128,7 @@ localPlayer w camDyn i cheating = do
         <*> pure ()
 
     -- | Generate events when user wants to move player
-    movePlayer :: Dynamic t Double -> AppMonad t (Event t (V2 Double))
+    movePlayer :: Dynamic t Double -> m (Event t (V2 Double))
     movePlayer spdDyn = do
       -- generate press event each dt seconds
       let dt = 0.01 :: Double
@@ -148,17 +147,17 @@ localPlayer w camDyn i cheating = do
       let moveE = mergeWith (+) [downE, upE, leftE, rightE]
       -- multiply with current speed value
       let spdDyn' = (\v -> V2 v v) <$> spdDyn
-      return $ attachPromptlyDynWith (*) spdDyn' moveE
+      return $ attachWith (*) (current spdDyn') moveE
 
     -- While key pressed generate the following event
-    pressingEvent :: Event t Double -> Scancode -> AppMonad t (Event t (V2 Double))
+    pressingEvent :: Event t Double -> Scancode -> m (Event t (V2 Double))
     pressingEvent e scode = do
       pressDyn <- keyPressing w scode
       let mkTag mpress v = const (V2 v v) <$> mpress
-      return $ attachPromptlyDynWithMaybe mkTag pressDyn e
+      return $ attachWithMaybe mkTag (current pressDyn) e
 
     -- | Synchronisation of position with rejections from server
-    syncPosition :: Dynamic t Double -> AppMonad t (Dynamic t (V2 Double))
+    syncPosition :: Dynamic t Double -> m (Dynamic t (V2 Double))
     syncPosition spdDyn = do
       moveE <- movePlayer spdDyn
       rec
@@ -168,24 +167,25 @@ localPlayer w camDyn i cheating = do
         positionDyn <- holdDyn 0 $ leftmost [rejectE, userE]
       return $ positionDyn
 
-    shoot :: Dynamic t ClientPlayer -> AppMonad t (Event t (V2 Double))
+    shoot :: Dynamic t ClientPlayer -> m (Event t (V2 Double))
     shoot pDyn = do
       clickE <- mouseClickPress w ButtonLeft playerShootRatio
-      return $ switchPromptlyDyn $ do
+      return $ switch . current $ do
         p <- pDyn
         cam <- camDyn
         return $ ffor clickE $ \wp -> normalize $ cameraToWorld cam wp - playerPos p
 
     -- Send commands to server
-    processCommands :: Event t (V2 Double) -> AppMonad t ()
+    processCommands :: Event t (V2 Double) -> m ()
     processCommands shootE = do
       _ <- sendToServer playerCommandId ReliableMessage $ PlayerShoot <$> shootE
       return ()
 
 -- | Client side controller for player
-player :: forall t . AppFrame t => PlayerId -- ^ Local id that indicates that controller should do nothing
+player :: forall t b m . (MonadGame t m, LoggingMonad t m, SyncMonad t b m, NetworkClient t b m)
+  => PlayerId -- ^ Local id that indicates that controller should do nothing
   -> PlayerId -- ^ ID of player the controller should create, if matches with first parameter, do nothing
-  -> AppMonad t (Dynamic t ClientPlayer)
+  -> m (Dynamic t ClientPlayer)
 player localId i = if i == localId then return $ pure initialPlayer
   else do
     buildE <- getPostBuild
@@ -194,7 +194,7 @@ player localId i = if i == localId then return $ pure initialPlayer
     -- printPlayer i p
     return p
   where
-    syncPlayer :: AppMonad t (Dynamic t ClientPlayer)
+    syncPlayer :: m (Dynamic t ClientPlayer)
     syncPlayer = fmap join $ syncWithName (show i) (pure initialPlayer) $ do
       let interpT = realToFrac (0.1 :: Double) -- not too fast, not too slow
           interpSteps = 10 -- five steps are enough for smooth transition

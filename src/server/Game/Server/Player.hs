@@ -35,9 +35,9 @@ type PlayerMapping = (Map PlayerId ServerPlayer, Map AppPeer PlayerId)
 type PlayerShoots t = Event t (Map PlayerId CreateBullet)
 
 -- | Shared players collection
-playersCollection :: forall t . AppFrame t
+playersCollection :: forall t m . MonadApp t m
   => Event t (Map PlayerId PlayerId) -- ^ Fires when a hit from bullets are occured. (killed => killer)
-  -> AppMonad t (Dynamic t PlayerMapping, PlayerShoots t)
+  -> m (Dynamic t PlayerMapping, PlayerShoots t)
 playersCollection hitsE = do
   -- we need a player counter to generate ids
   playerCounterRef <- newExternalRef (0 :: Int)
@@ -76,7 +76,7 @@ playersCollection hitsE = do
     let filterPeer _ _ = () -- Don't send peer to clients
     collReses <- hostCollection playerCollectionId peers mempty updE filterPeer playerWrapper
     let playersMapDyn = joinDynThroughMap $ fmap fst <$> collReses
-        shootsEvents  = switchPromptlyDyn $ mergeMap . fmap snd <$> collReses
+        shootsEvents  = switch . current $ mergeMap . fmap snd <$> collReses
     -- post processing to get peer-id map
     let playersMappingDyn :: Dynamic t PlayerMapping
         playersMappingDyn = do
@@ -102,14 +102,14 @@ data ServerPlayerExt = ServerPlayerExt {
 } deriving (Show)
 
 -- | Player component
-player :: forall t . AppFrame t
+player :: forall t m . MonadApp t m
   => ItemRoller t (V3 Double) -- ^ Roller of colors
   -> Event t () -- ^ Hit event from bullet
   -> Event t Int -- ^ Event about count of murders of another players
   -> PlayerId -- ^ Player ID that is simulated
   -> AppPeer -- ^ Player peer
   -- | Returns dynamic player and event when user requests bullet creation
-  -> AppMonad t (Dynamic t ServerPlayer, Event t CreateBullet)
+  -> m (Dynamic t ServerPlayer, Event t CreateBullet)
 player colorRoller hitE killsE i peer = do
   -- Initialisation
   buildE <- getPostBuild
@@ -141,7 +141,7 @@ player colorRoller hitE killsE i peer = do
     initialPosition = V2 0 0
 
     -- | Reactimate player with local server logic.
-    simulatePlayer :: ServerPlayer -> AppMonad t (Dynamic t ServerPlayer)
+    simulatePlayer :: ServerPlayer -> m (Dynamic t ServerPlayer)
     simulatePlayer Player{..} = do
       score <- collectPlayerScore
       return $ Player
@@ -153,11 +153,11 @@ player colorRoller hitE killsE i peer = do
         <*> pure playerCustom
 
     -- | Collect events about player murders
-    collectPlayerScore :: AppMonad t (Dynamic t Int)
+    collectPlayerScore :: m (Dynamic t Int)
     collectPlayerScore = foldDyn (+) 0 killsE
 
     -- synchronisation of state
-    syncPlayer :: Dynamic t ServerPlayer -> AppMonad t (Dynamic t ServerPlayer)
+    syncPlayer :: Dynamic t ServerPlayer -> m (Dynamic t ServerPlayer)
     syncPlayer pdyn = fmap join $ syncWithName (show i) pdyn $ do
       allPeers <- networkPeers
       let otherPeers = S.delete peer <$> allPeers
@@ -179,7 +179,7 @@ player colorRoller hitE killsE i peer = do
         return $ p { playerPos = pos }
 
     -- Synchronise position from client with rejecting if player moves too fast
-    syncPosition :: Dynamic t Double -> AppMonad t (Dynamic t (V2 Double))
+    syncPosition :: Dynamic t Double -> m (Dynamic t (V2 Double))
     syncPosition spdDyn = do
       let dt = 0.5 :: Double -- ^ Interval between cheats check
           epsylon = 0.1 :: Double -- ^ Accuracy of checking
@@ -221,7 +221,7 @@ player colorRoller hitE killsE i peer = do
       limitRate playerShootRatio shootE
 
 -- | Create item roller for player colors
-makeColorRoller :: AppFrame t => AppMonad t (ItemRoller t (V3 Double))
+makeColorRoller :: MonadGame t m => m (ItemRoller t (V3 Double))
 makeColorRoller = itemRoller $ NE.fromList [
     V3 1 0 0
   , V3 0 1 0

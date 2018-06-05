@@ -12,15 +12,15 @@ import qualified Data.Map.Strict as M
 
 import Game.Bullet
 import Game.GoreAndAsh
+import Game.GoreAndAsh.Network
 import Game.GoreAndAsh.Sync
 import Game.GoreAndAsh.Time
-import Game.Monad
 
 -- | Client side extension of bullet
 type ClientBullet = Bullet ()
 
 -- | Process all bullets, sync them from server
-handleBullets :: AppFrame t => AppMonad t (Dynamic t (Map BulletId ClientBullet))
+handleBullets :: (MonadGame t m, SyncMonad t b m, NetworkClient t b m) => m (Dynamic t (Map BulletId ClientBullet))
 handleBullets = do
   (bulletsDyn, updMapE) <-  remoteCollection bulletCollectionId bullet
   let delsE = ffor updMapE $ M.filter isNothing
@@ -28,10 +28,10 @@ handleBullets = do
   return $ joinDynThroughMap bulletsDyn
 
 -- | Controller of single bullet
-bullet :: forall t . AppFrame t
+bullet :: forall t b m . (MonadGame t m, SyncMonad t b m, NetworkClient t b m)
   => BulletId     -- ^ ID of created bullet
   -> CreateBullet -- ^ Creation info for bullet
-  -> AppMonad t (Dynamic t ClientBullet)
+  -> m (Dynamic t ClientBullet)
 bullet i CreateBullet{..} = syncBullet
   where
     initBullet = Bullet {
@@ -64,7 +64,7 @@ bullet i CreateBullet{..} = syncBullet
 
     -- Complex prediction of bullet position, that assumes stable movement + interpolation
     -- of steep server rejects.
-    predictPos :: Dynamic t (V2 Double) -> Dynamic t (V2 Double) -> AppMonad t (Dynamic t (V2 Double))
+    predictPos :: Dynamic t (V2 Double) -> Dynamic t (V2 Double) -> m (Dynamic t (V2 Double))
     predictPos velDyn serverPos = do
       buildE <- getPostBuild
       let bulletSymDt = 0.01 :: Double

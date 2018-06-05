@@ -13,7 +13,6 @@ import Linear
 
 import qualified Data.Foldable as F
 
-import Game.Monad
 import Game.GoreAndAsh
 import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Time
@@ -34,7 +33,7 @@ applyCamAction c a = case a of
       cameraZoom = min 3 $ max 0.01 $ cameraZoom c + k
     }
 
-camera :: forall t . AppFrame t => WindowWidget t -> AppMonad t (Dynamic t Camera)
+camera :: forall t m . MonadGame t m => WindowWidget t -> m (Dynamic t Camera)
 camera w = do
   let dt = 0.01 :: Double
   tickE <- fmap (const dt) <$> tickEvery (realToFrac dt)
@@ -71,11 +70,11 @@ camera w = do
       }
 
     -- While key pressed generate the following event
-    pressingEvent :: Event t Double -> Scancode -> AppMonad t (Event t (V2 Double))
+    pressingEvent :: Event t Double -> Scancode -> m (Event t (V2 Double))
     pressingEvent e scode = do
       pressDyn <- keyPressing w scode
       let mkTag mpress v = const (V2 v v) <$> mpress
-      return $ attachPromptlyDynWithMaybe mkTag pressDyn e
+      return $ attachWithMaybe mkTag (current pressDyn) e
 
 -- | Calculate transformation matrix for camera
 cameraMatrix :: Camera -> M33 Double

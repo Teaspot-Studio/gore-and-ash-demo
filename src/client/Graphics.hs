@@ -7,7 +7,6 @@ import Control.Monad
 import Data.Map.Strict (Map)
 import Data.Monoid
 import Data.Text (Text, pack)
-import Game.GoreAndAsh
 import Game.GoreAndAsh.SDL
 import SDL.Font (Font)
 import SDL.Vect (V4(..))
@@ -16,7 +15,6 @@ import Game
 import Game.Bullet
 import Game.Camera
 import Game.Client.Player
-import Game.Monad
 import Game.Player
 import Graphics.Bullet
 import Graphics.Square
@@ -29,15 +27,15 @@ showt :: Show a => a -> Text
 showt = pack . show
 
 -- | Here all code needed to draw a single game frame is located
-drawFrame :: forall t . AppFrame t => Dynamic t Game
+drawFrame :: Game
   -> Font -- ^ Font to render text with
   -> Window -- ^ Window where to draw
-  -> Renderer  -- ^ Renderer to use
-  -> HostFrame t ()
-drawFrame gameDyn font w r = do
+  -> Maybe Renderer  -- ^ Renderer to use
+  -> IO ()
+drawFrame _ _ _ Nothing = putStrLn "Invalid renderer!"
+drawFrame Game{..} font w (Just r) = do
   rendererDrawColor r $= V4 200 200 200 255
   clear r
-  Game{..} <- sample . current $ gameDyn
   drawPlayer w r gameCamera gameLocalPlayer
   mapM_ (drawPlayer w r gameCamera) gamePlayers
   mapM_ (drawBullet w r gameCamera) gameBullets
@@ -46,35 +44,32 @@ drawFrame gameDyn font w r = do
         (fmap (const ()) gameLocalPlayer)
         gamePlayers
   drawScore w r font allPlayers
-  glSwapWindow w
+  present r
 
 -- | Draw single player
-drawPlayer :: forall t s . AppFrame t
-  => Window -- ^ Window where to draw
+drawPlayer :: Window -- ^ Window where to draw
   -> Renderer -- ^ Renderer to use
   -> Camera -- ^ User camera (defines transformation of canvas)
   -> Player s -- ^ Player to render
-  -> HostFrame t ()
+  -> IO ()
 drawPlayer w r cam Player{..} = do
   renderSquare w r cam playerSize playerPos playerColor
 
 -- | Draw single bullet
-drawBullet :: forall t s . AppFrame t
-  => Window -- ^ Window where to draw
+drawBullet :: Window -- ^ Window where to draw
   -> Renderer -- ^ Renderer to use
   -> Camera -- ^ User camera (defines transformation of canvas)
   -> Bullet s -- ^ Bullet to render
-  -> HostFrame t ()
+  -> IO ()
 drawBullet w r cam Bullet{..} = do
   renderBullet w r bulletPos bulletVel cam
 
 -- | Draw global info about game (score)
-drawScore :: forall t . AppFrame t
-  => Window -- ^ Window where to draw
+drawScore :: Window -- ^ Window where to draw
   -> Renderer -- ^ Renderer to use
   -> Font -- ^ Font to use to render text with
   -> Map PlayerId ClientPlayer -- ^ Players collection
-  -> HostFrame t ()
+  -> IO ()
 drawScore _ r font players = unless (null players) $ do
   _ <- F.foldlM drawTextLine 5 msgs
   return ()

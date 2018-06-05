@@ -8,31 +8,27 @@ packages:
 - '.'
 - location:
     git: https://github.com/reflex-frp/reflex.git
-    commit: e549ebb9439bc8fbf3152e1e84a9e62b9eadd40e
-  extra-dep: true
-- location:
-    git: https://github.com/bennofs/reflex-host.git
-    commit: ab72c16077ab3bcc1c1e81312aac1090e64b97d4
+    commit: 5d9c8a00f2eb832f109c870963182149b988062a
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash.git
-    commit: a891a38c2ca6c57eacb0ce26682fff1ae543d571
+    commit: c074ff23cec4f0c02cddbc0b433b685b1b2b8507
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-logging.git
-    commit: 40787aff2641ed80c63ec2b7b91462c9052c51a2
+    commit: c4c8892d2b492441d345c530be20637496abe21d
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-network.git
-    commit: 207e423ffa34eb821e8ca2c4d5649c5c0ab32078
+    commit: 53a2f5dee266ef0331a3c9056f3556d42124e9ff
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-sync.git
-    commit: b3ff49bad30fb2482a13dd398da89f6d40287a2d
+    commit: 6fc0ebc6a6cc0c28182615becdcff2853caff3ec
   extra-dep: true
 - location:
     git: https://github.com/teaspot-studio/gore-and-ash-sdl.git
-    commit: e708acf0a67e2f0fedf1318829f972e7f19b9566
+    commit: c0ffc858561a60ff63f00765cea18845f87aad56
   extra-dep: true
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)

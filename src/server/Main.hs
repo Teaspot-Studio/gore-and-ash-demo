@@ -33,17 +33,20 @@ optionsParser = Options
 
 -- | Execute server with given options
 server :: Options -> IO ()
-server Options{..} = do
-  runSpiderHost $ hostApp $ runModule opts serverGame
+server Options{..} = withNetwork $ do
+  mres <- runGM $ runLoggerT . runNetworkT netopts . runSyncT sopts $ serverGame
+  case mres of
+    Left er -> print $ renderNetworkError er
+    Right _ -> pure ()
   where
-    opts = defaultSyncOptions netopts & syncOptionsRole .~ SyncMaster
+    sopts = defaultSyncOptions & syncOptionsRole .~ SyncMaster
     tcpOpts = TCPBackendOpts {
         tcpHostName = optionHostName
       , tcpServiceName = optionService
       , tcpParameters = defaultTCPParameters
       , tcpDuplexHints = defaultConnectHints
       }
-    netopts = (defaultNetworkOptions tcpOpts ()) {
+    netopts = (defaultNetworkOptions tcpOpts) {
         networkOptsDetailedLogging = False
       }
 

@@ -4,6 +4,7 @@ module Game(
   , Game(..)
   ) where
 
+import Control.Monad 
 import Data.Map.Strict (Map)
 
 import Game.Bullet
@@ -12,8 +13,10 @@ import Game.Client.Bullet
 import Game.Client.Player
 import Game.Global
 import Game.Monad
+import Game.Player
 
 import Game.GoreAndAsh
+import Game.GoreAndAsh.Network
 import Game.GoreAndAsh.SDL
 import Game.GoreAndAsh.Sync
 
@@ -32,10 +35,11 @@ data Game = Game {
 }
 
 -- | Client logic
-playGame :: AppFrame t => WindowWidget t -- ^ Window where to draw game
+playGame :: forall t b m . (MonadGame t m, NetworkClient t b m, SyncMonad t b m)
+  => Event t (WindowWidget t) -- ^ Window where to draw game
   -> Bool -- ^ Cheating flag, simulate hacked client
-  -> AppMonad t (Dynamic t Game)
-playGame w cheating = do
+  -> m (Dynamic t Game)
+playGame wE cheating = fmap join $ networkHold (pure $ pure initGame) $ ffor wE $ \w -> do
   globals     <- receiveGlobals
   cam         <- camera w
   playersInfo <- handlePlayers w cam cheating
@@ -46,7 +50,9 @@ playGame w cheating = do
     <*> fmap snd playersInfo
     <*> bullets
     <*> cam
+  where
+    initGame = Game GameGlobal (Player 0 0 0 0 0 (PlayerId 0)) mempty mempty (Camera 0 0)
 
 -- | Get info about globals from server
-receiveGlobals :: AppFrame t => AppMonad t (Dynamic t GameGlobal)
+receiveGlobals :: forall t b m . (MonadGame t m, NetworkClient t b m, SyncMonad t b m) => m (Dynamic t GameGlobal)
 receiveGlobals = syncFromServer globalId GameGlobal
